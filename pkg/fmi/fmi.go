@@ -40,7 +40,11 @@ type FMU struct {
 	LoggingOn        bool
 }
 
-type FMUID = uintptr
+type FMUID uintptr
+
+func (f FMUID) asFMI2Component() C.fmi2Component {
+	return C.fmi2Component(f)
+}
 
 //export fmi2GetVersion
 func fmi2GetVersion() C.fmi2String {
@@ -77,7 +81,7 @@ func boolFMU(b bool) C.fmi2Boolean {
 func fmi2Instantiate(instanceName C.fmi2String, fmuType C.fmi2Type, fmuGUID C.fmi2String,
 	fmuResourceLocation C.fmi2String, functions C.fmi2CallbackFunctions_t,
 	visible C.fmi2Boolean, loggingOn C.fmi2Boolean) C.fmi2Component {
-	id := uintptr(C.malloc(1))
+	id := FMUID(C.malloc(1))
 	fmus[id] = &FMU{
 		Name:             C.GoString(instanceName),
 		Typee:            FMUType(fmuType),
@@ -86,7 +90,7 @@ func fmi2Instantiate(instanceName C.fmi2String, fmuType C.fmi2Type, fmuGUID C.fm
 		Visible:          fmuBool(visible),
 		LoggingOn:        fmuBool(loggingOn),
 	}
-	return C.fmi2Component(unsafe.Pointer(id))
+	return C.fmi2Component(id)
 }
 
 // Instantiate is Go wrapper for fmi2Instantiate
@@ -116,6 +120,11 @@ func fmi2FreeInstance(c C.fmi2Component) {
 
 	delete(fmus, id)
 	C.free(unsafe.Pointer(id))
+}
+
+// FreeInstance is a wrapper for fmi2FreeInstance
+func FreeInstance(id FMUID) {
+	fmi2FreeInstance(C.fmi2Component(id))
 }
 
 //export fmi2SetDebugLogging

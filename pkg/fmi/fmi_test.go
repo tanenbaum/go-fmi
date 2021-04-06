@@ -92,3 +92,79 @@ func TestInstantiate(t *testing.T) {
 		})
 	}
 }
+
+func TestGetFMU(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *fmi.FMU
+		wantErr bool
+	}{
+		{
+			"id does not exist, returns error",
+			args{
+				fmi.FMUID(2),
+			},
+			nil,
+			true,
+		},
+		{
+			"id exists, return fmu",
+			args{
+				fmi.Instantiate("foo", fmi.FMUTypeCoSimulation, "thing", "", false, false),
+			},
+			&fmi.FMU{
+				Name:  "foo",
+				Typee: fmi.FMUTypeCoSimulation,
+				Guid:  "thing",
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := fmi.GetFMU(tt.args.id)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetFMU() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetFMU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFreeInstance(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			"Handles instance that doesn't exist",
+			args{
+				fmi.FMUID(2),
+			},
+		},
+		{
+			"Deletes existing FMU",
+			args{
+				fmi.Instantiate("foo", fmi.FMUTypeCoSimulation, "", "", false, false),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fmi.FreeInstance(tt.args.id)
+			if _, err := fmi.GetFMU(tt.args.id); err == nil {
+				t.Errorf("Expected FMU to have been freed: %v", err)
+			}
+		})
+	}
+}
