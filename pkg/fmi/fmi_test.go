@@ -1,9 +1,10 @@
 package fmi_test
 
 import (
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"gitlab.com/edgetic/simulation/go-fmi/pkg/fmi"
 )
 
@@ -74,8 +75,6 @@ func TestInstantiate(t *testing.T) {
 				Typee:            fmi.FMUTypeCoSimulation,
 				Guid:             "GUID",
 				ResourceLocation: "./path",
-				Visible:          true,
-				LoggingOn:        false,
 			},
 		},
 	}
@@ -86,7 +85,7 @@ func TestInstantiate(t *testing.T) {
 			if err != nil {
 				t.Errorf("Instantiate() GetFMU error: %v", err)
 			}
-			if !reflect.DeepEqual(got, &tt.want) {
+			if !cmp.Equal(got, &tt.want, cmpopts.IgnoreUnexported(fmi.FMU{})) {
 				t.Errorf("Instantiate() = %v, want %v", got, &tt.want)
 			}
 		})
@@ -131,7 +130,7 @@ func TestGetFMU(t *testing.T) {
 				t.Errorf("GetFMU() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !cmp.Equal(got, tt.want, cmpopts.IgnoreUnexported(fmi.FMU{})) {
 				t.Errorf("GetFMU() = %v, want %v", got, tt.want)
 			}
 		})

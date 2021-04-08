@@ -2,6 +2,7 @@ package fmi
 
 // #include <stdlib.h>
 // #include "./c/fmi2Functions.h"
+// #include "bridge.h"
 // typedef const fmi2CallbackFunctions* fmi2CallbackFunctions_t;
 // typedef const fmi2String* strings_t;
 // typedef const fmi2ValueReference* valueReferences_t;
@@ -18,28 +19,15 @@ import (
 	"unsafe"
 )
 
-const (
-	FMUTypeModelExchange FMUType = iota
-	FMUTypeCoSimulation
-)
-
 var (
 	fmiVersion       = C.CString(C.fmi2Version)
 	fmiTypesPlatform = C.CString(C.fmi2TypesPlatform)
-	fmus             = map[FMUID]*FMU{}
+	// fmus stores all active FMUs at runtime
+	fmus = map[FMUID]*FMU{}
 )
 
-type FMUType uint
-
-type FMU struct {
-	Name             string
-	Typee            FMUType
-	Guid             string
-	ResourceLocation string
-	Visible          bool
-	LoggingOn        bool
-}
-
+// FMUID holds a simple pointer that can be shared from this library to the calling system
+// The id is mapped internally to the actual FMU stored in Go memory
 type FMUID uintptr
 
 func (f FMUID) asFMI2Component() C.fmi2Component {
@@ -80,16 +68,35 @@ func boolFMU(b bool) C.fmi2Boolean {
 //export fmi2Instantiate
 func fmi2Instantiate(instanceName C.fmi2String, fmuType C.fmi2Type, fmuGUID C.fmi2String,
 	fmuResourceLocation C.fmi2String, functions C.fmi2CallbackFunctions_t,
-	visible C.fmi2Boolean, loggingOn C.fmi2Boolean) C.fmi2Component {
+	_ C.fmi2Boolean, loggingOn C.fmi2Boolean) C.fmi2Component {
 	id := FMUID(C.malloc(1))
-	fmus[id] = &FMU{
+	fmu := &FMU{
 		Name:             C.GoString(instanceName),
 		Typee:            FMUType(fmuType),
 		Guid:             C.GoString(fmuGUID),
 		ResourceLocation: C.GoString(fmuResourceLocation),
-		Visible:          fmuBool(visible),
-		LoggingOn:        fmuBool(loggingOn),
 	}
+	// log errors by default
+	loggingMask := loggerCategoryError
+	// loggingOn means log events
+	if fmuBool(loggingOn) {
+		loggingMask |= loggerCategoryEvents
+	}
+	fmu.logger = &logger{
+		mask: loggingMask,
+		fmiCallbackLogger: func(status Status, category, message string) {
+			n := C.CString(fmu.Name)
+			c := C.CString(category)
+			m := C.CString(message)
+			defer C.free(unsafe.Pointer(n))
+			defer C.free(unsafe.Pointer(c))
+			defer C.free(unsafe.Pointer(m))
+			C.bridge_fmi2CallbackLogger(functions.logger, functions.componentEnvironment, n, C.fmi2Status(status), c, m)
+		},
+	}
+
+	fmus[id] = fmu
+
 	return C.fmi2Component(id)
 }
 
