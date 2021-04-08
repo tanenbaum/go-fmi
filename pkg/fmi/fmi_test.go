@@ -73,7 +73,7 @@ func TestInstantiate(t *testing.T) {
 			fmi.FMU{
 				Name:             "Name",
 				Typee:            fmi.FMUTypeCoSimulation,
-				Guid:             "GUID",
+				GUID:             "GUID",
 				ResourceLocation: "./path",
 			},
 		},
@@ -118,7 +118,7 @@ func TestGetFMU(t *testing.T) {
 			&fmi.FMU{
 				Name:  "foo",
 				Typee: fmi.FMUTypeCoSimulation,
-				Guid:  "thing",
+				GUID:  "thing",
 			},
 			false,
 		},
