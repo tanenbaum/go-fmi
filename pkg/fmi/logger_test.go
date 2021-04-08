@@ -88,7 +88,7 @@ func Test_newLogger(t *testing.T) {
 				[]string{"logEvents", "logStatusError"},
 				nil,
 			},
-			logger{
+			&logger{
 				mask: loggerCategoryEvents | loggerCategoryError,
 			},
 			false,
@@ -174,6 +174,17 @@ func Test_logger_Error(t *testing.T) {
 				category: "logStatusError",
 				message:  "foo",
 			},
+		},
+		{
+			"no logging if none category is set",
+			fields{
+				loggerCategoryNone,
+				&mockLogger{},
+			},
+			args{
+				errors.New("foo"),
+			},
+			&mockLogger{},
 		},
 	}
 	for _, tt := range tests {

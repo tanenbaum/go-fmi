@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	loggerCategoryNone   loggerCategory = 0
 	loggerCategoryEvents loggerCategory = 1 << iota
 	loggerCategoryWarning
 	loggerCategoryDiscard
@@ -30,6 +31,8 @@ type Logger interface {
 	Event(msg string)
 	// Info logs info messages to FMU logger
 	Info(msg string)
+
+	setMask(mask loggerCategory)
 }
 
 type loggerCategory uint
@@ -68,7 +71,7 @@ func newLogger(categories []string, callback loggerCallback) (Logger, error) {
 		}
 		mask |= m
 	}
-	return logger{
+	return &logger{
 		mask:              mask,
 		fmiCallbackLogger: callback,
 	}, nil
@@ -96,6 +99,10 @@ func (l logger) Event(msg string) {
 
 func (l logger) Info(msg string) {
 	l.logMessage(StatusOK, loggerCategoryAll, msg)
+}
+
+func (l *logger) setMask(mask loggerCategory) {
+	l.mask = mask
 }
 
 func (l logger) logMessage(status Status, category loggerCategory, message string) {
