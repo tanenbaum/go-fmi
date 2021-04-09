@@ -1,6 +1,7 @@
 package fmi_test
 
 import (
+	"errors"
 	"testing"
 	"unsafe"
 
@@ -11,7 +12,14 @@ import (
 
 type mockModel struct {
 	fmi.Model
-	guid string
+	guid     string
+	err      bool
+	instance fmi.ModelInstance
+}
+
+type mockInstance struct {
+	fmi.ModelInstance
+	err bool
 }
 
 func (m mockModel) Description() fmi.ModelDescription {
@@ -20,13 +28,51 @@ func (m mockModel) Description() fmi.ModelDescription {
 	}
 }
 
+func (m mockModel) Instantiate(l fmi.Logger) (fmi.ModelInstance, error) {
+	if m.err {
+		return nil, errors.New("Instantiate")
+	}
+	return m.instance, nil
+}
+
+func (m mockInstance) SetupExperiment(toleranceDefined bool, tolerance float64,
+	startTime float64, stopTimeDefined bool, stopTime float64) error {
+	if m.err {
+		return errors.New("SetupExperiment")
+	}
+	return nil
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
 func init() {
 	fmi.RegisterModel(&mockModel{
-		guid: "GUID",
+		guid:     "GUID",
+		instance: &mockInstance{},
 	})
+	fmi.RegisterModel(&mockModel{
+		guid: "ModelErrors",
+		err:  true,
+	})
+	fmi.RegisterModel(&mockModel{
+		guid: "InstanceErrors",
+		instance: &mockInstance{
+			err: true,
+		},
+	})
+}
+
+func instantiateDefault() fmi.FMUID {
+	return fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger))
+}
+
+func instantiateModelErrors() fmi.FMUID {
+	return fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "ModelErrors", "", false, noopLogger))
+}
+
+func instantiateInstanceErrors() fmi.FMUID {
+	return fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "InstanceErrors", "", false, noopLogger))
 }
 
 func TestGetVersion(t *testing.T) {
@@ -130,6 +176,19 @@ func TestInstantiate(t *testing.T) {
 			nil,
 		},
 		{
+			"Instantiate error is handled",
+			args{
+				"Name",
+				fmi.FMUTypeCoSimulation,
+				"ModelErrors",
+				"",
+				false,
+				loggerExpectError,
+			},
+			true,
+			nil,
+		},
+		{
 			"Instance should be created and stored",
 			args{
 				"Name",
@@ -191,10 +250,10 @@ func TestGetFMU(t *testing.T) {
 		{
 			"id exists, return fmu",
 			args{
-				fmi.FMUID(fmi.Instantiate("foo", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger)),
+				instantiateDefault(),
 			},
 			&fmi.FMU{
-				Name:  "foo",
+				Name:  "name",
 				Typee: fmi.FMUTypeCoSimulation,
 				GUID:  "GUID",
 				State: fmi.ModelStateInstantiated,
@@ -240,7 +299,7 @@ func TestFreeInstance(t *testing.T) {
 		{
 			"Deletes existing FMU",
 			args{
-				fmi.FMUID(fmi.Instantiate("foo", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger)),
+				instantiateDefault(),
 			},
 		},
 	}
@@ -311,7 +370,7 @@ func TestSetDebugLogging(t *testing.T) {
 			"Invalid state returns error",
 			args{
 				id: func() fmi.FMUID {
-					id := fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger))
+					id := instantiateDefault()
 					fmu, _ := fmi.GetFMU(id)
 					fmu.State = fmi.ModelStateStartAndEnd
 					return id
@@ -322,7 +381,7 @@ func TestSetDebugLogging(t *testing.T) {
 		{
 			"Logging can be set to off",
 			args{
-				id:        fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger)),
+				id:        instantiateDefault(),
 				loggingOn: false,
 			},
 			fmi.StatusOK,
@@ -330,7 +389,7 @@ func TestSetDebugLogging(t *testing.T) {
 		{
 			"Logging on with no categories",
 			args{
-				id:        fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger)),
+				id:        instantiateDefault(),
 				loggingOn: true,
 			},
 			fmi.StatusOK,
@@ -338,7 +397,7 @@ func TestSetDebugLogging(t *testing.T) {
 		{
 			"Invalid logger category returns error",
 			args{
-				id:         fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger)),
+				id:         instantiateDefault(),
 				loggingOn:  true,
 				categories: []string{"foo"},
 			},
@@ -347,7 +406,7 @@ func TestSetDebugLogging(t *testing.T) {
 		{
 			"Categories are merged and set",
 			args{
-				id:         fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger)),
+				id:         instantiateDefault(),
 				loggingOn:  true,
 				categories: []string{"logStatusDiscard", "logStatusPending"},
 			},
@@ -358,6 +417,57 @@ func TestSetDebugLogging(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := fmi.SetDebugLogging(tt.args.id, tt.args.loggingOn, tt.args.categories); got != tt.want {
 				t.Errorf("SetDebugLogging() = %v, want %v", got, tt.want)
+			}
+			fmi.FreeInstance(tt.args.id)
+		})
+	}
+}
+
+func TestSetupExperiment(t *testing.T) {
+	type args struct {
+		id               fmi.FMUID
+		toleranceDefined bool
+		tolerance        float64
+		startTime        float64
+		stopTimeDefined  bool
+		stopTime         float64
+	}
+	tests := []struct {
+		name string
+		args args
+		want fmi.Status
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: func() fmi.FMUID {
+					id := instantiateDefault()
+					fmu, _ := fmi.GetFMU(id)
+					fmu.State = fmi.ModelStateError
+					return id
+				}(),
+			},
+			fmi.StatusError,
+		},
+		{
+			"SetupExperiment error is returned",
+			args{
+				id: instantiateInstanceErrors(),
+			},
+			fmi.StatusError,
+		},
+		{
+			"SetupExperiment is called",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusOK,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.SetupExperiment(tt.args.id, tt.args.toleranceDefined, tt.args.tolerance, tt.args.startTime, tt.args.stopTimeDefined, tt.args.stopTime); got != tt.want {
+				t.Errorf("SetupExperiment() = %v, want %v", got, tt.want)
 			}
 			fmi.FreeInstance(tt.args.id)
 		})

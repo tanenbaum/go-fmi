@@ -189,11 +189,18 @@ func Instantiate(instanceName string, fmuType FMUType, fmuGUID string,
 		return nil
 	}
 
-	_, ok := models[fmu.GUID]
+	model, ok := models[fmu.GUID]
 	if !ok {
 		fmu.logger.Error(fmt.Errorf("GUID %s does not match any registered model", fmu.GUID))
 		return nil
 	}
+
+	instance, err := model.Instantiate(fmu.logger)
+	if err != nil {
+		fmu.logger.Error(fmt.Errorf("Error instantiating model: %w", err))
+		return nil
+	}
+	fmu.instance = instance
 
 	fmus[id] = fmu
 
@@ -285,8 +292,55 @@ func SetDebugLogging(id FMUID, loggingOn bool, categories []string) Status {
 func fmi2SetupExperiment(c C.fmi2Component, toleranceDefined C.fmi2Boolean,
 	tolerance C.fmi2Real, startTime C.fmi2Real, stopTimeDefined C.fmi2Boolean,
 	stopTime C.fmi2Real) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+
+	return C.fmi2Status(SetupExperiment(FMUID(c),
+		fmuBool(toleranceDefined), float64(tolerance),
+		float64(startTime), fmuBool(stopTimeDefined), float64(stopTime)))
+}
+
+/*
+SetupExperiment informs the FMU to setup the experiment. This function must be called after
+fmi2Instantiate and before fmi2EnterInitializationMode is called. Arguments
+toleranceDefined and tolerance depend on the FMU type:
+
+fmuType = fmi2ModelExchange:
+If `toleranceDefined = fmi2True`, then the model is called with a numerical
+integration scheme where the step size is controlled by using `tolerance` for error
+estimation (usually as relative tolerance). In such a case, all numerical algorithms used
+inside the model (for example, to solve non-linear algebraic equations) should also
+operate with an error estimation of an appropriate smaller relative tolerance.
+
+fmuType = fmi2CoSimulation:
+If `toleranceDefined = fmi2True`, then the communication interval of the slave is
+controlled by error estimation. In case the slave utilizes a numerical integrator with
+variable step size and error estimation, it is suggested to use `tolerance` for the error
+estimation of the internal integrator (usually as relative tolerance).
+An FMU for Co-Simulation might ignore this argument.
+
+The arguments startTime and stopTime can be used to check whether the model is valid
+within the given boundaries or to allocate memory which is necessary for storing results.
+Argument startTime is the fixed initial value of the independent variable 5 [if the
+independent variable is `time`, startTime is the starting time of initializaton]. If
+`stopTimeDefined = fmi2True`, then `stopTime` is the defined final value of the
+independent variable [if the independent variable is `time`, stopTime is the stop time of
+the simulation] and if the environment tries to compute past stopTime the FMU has to
+return `fmi2Status = fmi2Error`. If `stopTimeDefined = fmi2False`, then no final value
+of the independent variable is defined and argument stopTime is meaningless.
+*/
+func SetupExperiment(id FMUID, toleranceDefined bool, tolerance float64,
+	startTime float64, stopTimeDefined bool, stopTime float64) Status {
+	const expected = ModelStateInstantiated
+	fmu, ok := allowedState(id, "SetupExperiment", expected)
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.SetupExperiment(
+		toleranceDefined, tolerance, startTime, stopTimeDefined, stopTime); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling SetupExperiment: %w", err))
+		return StatusError
+	}
+	return StatusOK
 }
 
 //export fmi2EnterInitializationMode
