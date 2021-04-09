@@ -43,6 +43,13 @@ func (m mockInstance) SetupExperiment(toleranceDefined bool, tolerance float64,
 	return nil
 }
 
+func (m mockInstance) EnterInitializationMode() error {
+	if m.err {
+		return errors.New("EnterInitializationMode")
+	}
+	return nil
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -470,6 +477,51 @@ func TestSetupExperiment(t *testing.T) {
 				t.Errorf("SetupExperiment() = %v, want %v", got, tt.want)
 			}
 			fmi.FreeInstance(tt.args.id)
+		})
+	}
+}
+
+func TestEnterInitializationMode(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+	}
+	tests := []struct {
+		name string
+		args args
+		want fmi.Status
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: func() fmi.FMUID {
+					id := instantiateDefault()
+					fmu, _ := fmi.GetFMU(id)
+					fmu.State = fmi.ModelStateError
+					return id
+				}(),
+			},
+			fmi.StatusError,
+		},
+		{
+			"EnterInitializationMode error is returned",
+			args{
+				id: instantiateInstanceErrors(),
+			},
+			fmi.StatusError,
+		},
+		{
+			"EnterInitializationMode is called",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusOK,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.EnterInitializationMode(tt.args.id); got != tt.want {
+				t.Errorf("EnterInitializationMode() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

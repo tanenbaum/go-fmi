@@ -72,4 +72,7 @@ type ModelInstance interface {
 	// error can be returned if there are issues.
 	SetupExperiment(toleranceDefined bool, tolerance float64,
 		startTime float64, stopTimeDefined bool, stopTime float64) error
+
+	// EnterInitializationMode called from fmi2EnterInitializationMode
+	EnterInitializationMode() error
 }

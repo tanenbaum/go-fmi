@@ -345,8 +345,28 @@ func SetupExperiment(id FMUID, toleranceDefined bool, tolerance float64,
 
 //export fmi2EnterInitializationMode
 func fmi2EnterInitializationMode(c C.fmi2Component) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	return C.fmi2Status(EnterInitializationMode(FMUID(c)))
+}
+
+/*
+EnterInitializationMode informs the FMU to enter Initialization Mode. Before calling this function, all variables with
+attribute < ScalarVariable initial = "exact" or "approx"> can be set with the
+`fmi2SetXXX` functions (the ScalarVariable attributes are defined in the Model Description File).
+Setting other variables is not allowed. Furthermore, fmi2SetupExperiment must be called at least once before calling
+fmi2EnterInitializationMode, in order that startTime is defined.
+*/
+func EnterInitializationMode(id FMUID) Status {
+	const expected = ModelStateInstantiated
+	fmu, ok := allowedState(id, "EnterInitializationMode", expected)
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.EnterInitializationMode(); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling EnterInitializationMode: %w", err))
+		return StatusError
+	}
+	return StatusOK
 }
 
 //export fmi2ExitInitializationMode
