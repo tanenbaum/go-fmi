@@ -65,7 +65,7 @@ func Test_loggerCategory_String(t *testing.T) {
 func Test_newLogger(t *testing.T) {
 	type args struct {
 		categories []string
-		callback   loggerCallback
+		callback   LoggerCallback
 	}
 	tests := []struct {
 		name    string

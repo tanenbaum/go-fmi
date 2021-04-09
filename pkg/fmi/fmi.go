@@ -86,8 +86,30 @@ func boolFMU(b bool) C.fmi2Boolean {
 }
 
 //export fmi2Instantiate
+func fmi2Instantiate(instanceName C.fmi2String, fmuType C.fmi2Type, fmuGUID C.fmi2String,
+	fmuResourceLocation C.fmi2String, functions C.fmi2CallbackFunctions_t,
+	_ C.fmi2Boolean, loggingOn C.fmi2Boolean) C.fmi2Component {
+	name := C.GoString(instanceName)
+
+	logger := func(status Status, category, message string) {
+		n := C.CString(name)
+		c := C.CString(category)
+		m := C.CString(message)
+		defer C.free(unsafe.Pointer(n))
+		defer C.free(unsafe.Pointer(c))
+		defer C.free(unsafe.Pointer(m))
+		C.bridge_fmi2CallbackLogger(functions.logger, functions.componentEnvironment, n, C.fmi2Status(status), c, m)
+	}
+	return Instantiate(
+		name,
+		FMUType(fmuType),
+		C.GoString(fmuGUID),
+		C.GoString(fmuResourceLocation),
+		fmuBool(loggingOn), logger)
+}
+
 /*
-fmi2Instantiate returns a new instance of an FMU. If a null pointer is returned, then instantiation
+Instantiate returns a new instance of an FMU. If a null pointer is returned, then instantiation
 failed. In that case, `functions->logger` is called with detailed information about the
 reason. An FMU can be instantiated many times (provided capability flag canBeInstantiatedOnlyOncePerProcess = false).
 
@@ -136,34 +158,25 @@ If loggingOn = fmi2True , debug logging is enabled. If loggingOn = fmi2False , d
 logging is disabled. [The FMU enable/disables LogCategories which are useful for
 debugging according to this argument. Which LogCategories the FMU sets is unspecified.]
 */
-func fmi2Instantiate(instanceName C.fmi2String, fmuType C.fmi2Type, fmuGUID C.fmi2String,
-	fmuResourceLocation C.fmi2String, functions C.fmi2CallbackFunctions_t,
-	_ C.fmi2Boolean, loggingOn C.fmi2Boolean) C.fmi2Component {
-	id := FMUID(len(fmus))
+func Instantiate(instanceName string, fmuType FMUType, fmuGUID string,
+	fmuResourceLocation string, loggingOn bool, logFn LoggerCallback) C.fmi2Component {
+	id := FMUID(C.malloc(1))
 	fmu := &FMU{
-		Name:             C.GoString(instanceName),
-		Typee:            FMUType(fmuType),
-		GUID:             C.GoString(fmuGUID),
-		ResourceLocation: C.GoString(fmuResourceLocation),
+		Name:             instanceName,
+		Typee:            fmuType,
+		GUID:             fmuGUID,
+		ResourceLocation: fmuResourceLocation,
 		State:            ModelStateInstantiated,
 	}
 	// log errors by default
 	loggingMask := loggerCategoryError
 	// loggingOn means log events
-	if fmuBool(loggingOn) {
+	if loggingOn {
 		loggingMask |= loggerCategoryEvents
 	}
 	fmu.logger = &logger{
-		mask: loggingMask,
-		fmiCallbackLogger: func(status Status, category, message string) {
-			n := C.CString(fmu.Name)
-			c := C.CString(category)
-			m := C.CString(message)
-			defer C.free(unsafe.Pointer(n))
-			defer C.free(unsafe.Pointer(c))
-			defer C.free(unsafe.Pointer(m))
-			C.bridge_fmi2CallbackLogger(functions.logger, functions.componentEnvironment, n, C.fmi2Status(status), c, m)
-		},
+		mask:              loggingMask,
+		fmiCallbackLogger: logFn,
 	}
 
 	if fmu.Name == "" {
@@ -185,20 +198,6 @@ func fmi2Instantiate(instanceName C.fmi2String, fmuType C.fmi2Type, fmuGUID C.fm
 	fmus[id] = fmu
 
 	return C.fmi2Component(id)
-}
-
-// Instantiate is Go wrapper for fmi2Instantiate
-// callback functions use a default value
-func Instantiate(instanceName string, fmuType FMUType, fmuGUID string,
-	fmuResourceLocation string, visible bool, loggingOn bool) FMUID {
-	n := C.CString(instanceName)
-	g := C.CString(fmuGUID)
-	r := C.CString(fmuResourceLocation)
-	comp := fmi2Instantiate(n, C.fmi2Type(fmuType), g, r, &C.fmi2CallbackFunctions{}, boolFMU(visible), boolFMU(loggingOn))
-	C.free(unsafe.Pointer(n))
-	C.free(unsafe.Pointer(g))
-	C.free(unsafe.Pointer(r))
-	return FMUID(comp)
 }
 
 //export fmi2FreeInstance
@@ -227,8 +226,20 @@ func FreeInstance(id FMUID) {
 }
 
 //export fmi2SetDebugLogging
+func fmi2SetDebugLogging(c C.fmi2Component, loggingOn C.fmi2Boolean,
+	nCategories C.size_t, categories C.strings_t) C.fmi2Status {
+	var cs []C.fmi2String
+	carrayToSlice(unsafe.Pointer(categories), unsafe.Pointer(&cs), int(nCategories))
+	cats := make([]string, len(cs))
+	for i, c := range cs {
+		cats[i] = C.GoString(c)
+	}
+
+	return C.fmi2Status(SetDebugLogging(FMUID(c), fmuBool(loggingOn), cats))
+}
+
 /*
-fmi2SetDebugLogging controls debug logging that is output via the logger function callback.
+SetDebugLogging controls debug logging that is output via the logger function callback.
 If loggingOn = fmi2True, debug logging is enabled, otherwise it is switched off.
 If loggingOn = fmi2True and nCategories = 0, then all debug messages shall be output.
 If loggingOn=fmi2True and nCategories > 0, then only debug messages according to
@@ -239,37 +250,35 @@ none, some or all allowed values for categories for this FMU are defined in the
 modelDescription.xml file via element `fmiModelDescription.LogCategories `.
 Supported log categories are in `logger.go`.
 */
-func fmi2SetDebugLogging(c C.fmi2Component, loggingOn C.fmi2Boolean,
-	nCategories C.size_t, categories C.strings_t) C.fmi2Status {
+func SetDebugLogging(id FMUID, loggingOn bool, categories []string) Status {
 	const expected = ModelStateInstantiated | ModelStateInitializationMode |
 		ModelStateEventMode | ModelStateContinuousTimeMode |
 		ModelStateStepComplete | ModelStateStepInProgress | ModelStateStepFailed | ModelStateStepCanceled |
 		ModelStateTerminated | ModelStateError
-	fmu, ok := allowedState(c, "SetDebugLogging", expected)
+	fmu, ok := allowedState(id, "SetDebugLogging", expected)
 	if !ok {
-		return C.fmi2Error
+		return StatusError
 	}
-	if !fmuBool(loggingOn) {
+	if !loggingOn {
 		fmu.logger.setMask(loggerCategoryNone)
-		return C.fmi2OK
+		return StatusOK
 	}
-	if nCategories == 0 {
+	if len(categories) == 0 {
 		fmu.logger.setMask(loggerCategoryAll)
-		return C.fmi2OK
+		return StatusOK
 	}
-	var cs []C.fmi2String
-	carrayToSlice(unsafe.Pointer(categories), unsafe.Pointer(&cs), int(nCategories))
+
 	mask := loggerCategoryNone
-	for _, c := range cs {
-		cat := C.GoString(c)
+	for _, cat := range categories {
 		m, err := loggerCategoryFromString(cat)
 		if err != nil {
 			fmu.logger.Error(fmt.Errorf("Log category %s was not recognized", cat))
+			return StatusError
 		}
 		mask |= m
 	}
 	fmu.logger.setMask(mask)
-	return C.fmi2OK
+	return StatusOK
 }
 
 //export fmi2SetupExperiment
@@ -544,8 +553,8 @@ func GetFMU(id FMUID) (*FMU, error) {
 	return fmu, nil
 }
 
-func allowedState(c C.fmi2Component, name string, expected ModelState) (*FMU, bool) {
-	_, fmu, err := getFMU(c)
+func allowedState(id FMUID, name string, expected ModelState) (*FMU, bool) {
+	fmu, err := GetFMU(id)
 	if err != nil {
 		return nil, false
 	}

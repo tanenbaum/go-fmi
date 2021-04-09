@@ -57,12 +57,12 @@ func (l loggerCategory) String() string {
 type logger struct {
 	mask loggerCategory
 
-	fmiCallbackLogger loggerCallback
+	fmiCallbackLogger LoggerCallback
 }
 
-type loggerCallback func(status Status, category, message string)
+type LoggerCallback func(status Status, category, message string)
 
-func newLogger(categories []string, callback loggerCallback) (Logger, error) {
+func newLogger(categories []string, callback LoggerCallback) (Logger, error) {
 	mask := loggerCategory(0)
 	for _, c := range categories {
 		m, err := loggerCategoryFromString(c)
