@@ -50,18 +50,28 @@ func (m mockInstance) EnterInitializationMode() error {
 	return nil
 }
 
+func (m mockInstance) ExitInitializationMode() error {
+	if m.err {
+		return errors.New("ExitInitializationMode")
+	}
+	return nil
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
 func init() {
+	// default model
 	fmi.RegisterModel(&mockModel{
 		guid:     "GUID",
 		instance: &mockInstance{},
 	})
+	// model methods return errors
 	fmi.RegisterModel(&mockModel{
 		guid: "ModelErrors",
 		err:  true,
 	})
+	// model instances return errors
 	fmi.RegisterModel(&mockModel{
 		guid: "InstanceErrors",
 		instance: &mockInstance{
@@ -70,16 +80,35 @@ func init() {
 	})
 }
 
-func instantiateDefault() fmi.FMUID {
-	return fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger))
+func instantiateDefault(state ...fmi.ModelState) fmi.FMUID {
+	id := fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "GUID", "", false, noopLogger))
+	instantiateState(id, state...)
+	return id
 }
 
-func instantiateModelErrors() fmi.FMUID {
-	return fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "ModelErrors", "", false, noopLogger))
+func instantiateState(id fmi.FMUID, state ...fmi.ModelState) fmi.FMUID {
+	if len(state) == 0 {
+		return id
+	}
+	fmu, _ := fmi.GetFMU(id)
+	var mask fmi.ModelState
+	for _, s := range state {
+		mask |= s
+	}
+	fmu.State = mask
+	return id
 }
 
-func instantiateInstanceErrors() fmi.FMUID {
-	return fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "InstanceErrors", "", false, noopLogger))
+func instantiateModelErrors(state ...fmi.ModelState) fmi.FMUID {
+	id := fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "ModelErrors", "", false, noopLogger))
+	instantiateState(id, state...)
+	return id
+}
+
+func instantiateInstanceErrors(state ...fmi.ModelState) fmi.FMUID {
+	id := fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "InstanceErrors", "", false, noopLogger))
+	instantiateState(id, state...)
+	return id
 }
 
 func TestGetVersion(t *testing.T) {
@@ -376,12 +405,7 @@ func TestSetDebugLogging(t *testing.T) {
 		{
 			"Invalid state returns error",
 			args{
-				id: func() fmi.FMUID {
-					id := instantiateDefault()
-					fmu, _ := fmi.GetFMU(id)
-					fmu.State = fmi.ModelStateStartAndEnd
-					return id
-				}(),
+				id: instantiateDefault(fmi.ModelStateStartAndEnd),
 			},
 			fmi.StatusError,
 		},
@@ -430,6 +454,19 @@ func TestSetDebugLogging(t *testing.T) {
 	}
 }
 
+func verifyFMUStateAndCleanUp(t *testing.T, id fmi.FMUID, state fmi.ModelState) {
+	fmu, err := fmi.GetFMU(id)
+	defer fmi.FreeInstance(id)
+	if err != nil {
+		t.Errorf("Error getting FMU: %w", err)
+		return
+	}
+
+	if fmu.State != state {
+		t.Errorf("Expected FMU state %v, got %v", fmu.State, state)
+	}
+}
+
 func TestSetupExperiment(t *testing.T) {
 	type args struct {
 		id               fmi.FMUID
@@ -440,21 +477,18 @@ func TestSetupExperiment(t *testing.T) {
 		stopTime         float64
 	}
 	tests := []struct {
-		name string
-		args args
-		want fmi.Status
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
 	}{
 		{
 			"FMU state is invalid",
 			args{
-				id: func() fmi.FMUID {
-					id := instantiateDefault()
-					fmu, _ := fmi.GetFMU(id)
-					fmu.State = fmi.ModelStateError
-					return id
-				}(),
+				id: instantiateDefault(fmi.ModelStateError),
 			},
 			fmi.StatusError,
+			fmi.ModelStateError,
 		},
 		{
 			"SetupExperiment error is returned",
@@ -462,6 +496,7 @@ func TestSetupExperiment(t *testing.T) {
 				id: instantiateInstanceErrors(),
 			},
 			fmi.StatusError,
+			fmi.ModelStateInstantiated,
 		},
 		{
 			"SetupExperiment is called",
@@ -469,6 +504,7 @@ func TestSetupExperiment(t *testing.T) {
 				id: instantiateDefault(),
 			},
 			fmi.StatusOK,
+			fmi.ModelStateInstantiated,
 		},
 	}
 	for _, tt := range tests {
@@ -476,7 +512,7 @@ func TestSetupExperiment(t *testing.T) {
 			if got := fmi.SetupExperiment(tt.args.id, tt.args.toleranceDefined, tt.args.tolerance, tt.args.startTime, tt.args.stopTimeDefined, tt.args.stopTime); got != tt.want {
 				t.Errorf("SetupExperiment() = %v, want %v", got, tt.want)
 			}
-			fmi.FreeInstance(tt.args.id)
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
 	}
 }
@@ -486,21 +522,18 @@ func TestEnterInitializationMode(t *testing.T) {
 		id fmi.FMUID
 	}
 	tests := []struct {
-		name string
-		args args
-		want fmi.Status
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
 	}{
 		{
 			"FMU state is invalid",
 			args{
-				id: func() fmi.FMUID {
-					id := instantiateDefault()
-					fmu, _ := fmi.GetFMU(id)
-					fmu.State = fmi.ModelStateError
-					return id
-				}(),
+				id: instantiateDefault(fmi.ModelStateError),
 			},
 			fmi.StatusError,
+			fmi.ModelStateError,
 		},
 		{
 			"EnterInitializationMode error is returned",
@@ -508,6 +541,7 @@ func TestEnterInitializationMode(t *testing.T) {
 				id: instantiateInstanceErrors(),
 			},
 			fmi.StatusError,
+			fmi.ModelStateInitializationMode,
 		},
 		{
 			"EnterInitializationMode is called",
@@ -515,6 +549,7 @@ func TestEnterInitializationMode(t *testing.T) {
 				id: instantiateDefault(),
 			},
 			fmi.StatusOK,
+			fmi.ModelStateInitializationMode,
 		},
 	}
 	for _, tt := range tests {
@@ -522,6 +557,52 @@ func TestEnterInitializationMode(t *testing.T) {
 			if got := fmi.EnterInitializationMode(tt.args.id); got != tt.want {
 				t.Errorf("EnterInitializationMode() = %v, want %v", got, tt.want)
 			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestExitInitializationMode(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(fmi.ModelStateError),
+			},
+			fmi.StatusError,
+			fmi.ModelStateError,
+		},
+		{
+			"ExitInitializationMode error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateInitializationMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateInitializationMode,
+		},
+		{
+			"ExitInitializationMode is called",
+			args{
+				id: instantiateDefault(fmi.ModelStateInitializationMode),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.ExitInitializationMode(tt.args.id); got != tt.want {
+				t.Errorf("ExitInitializationMode() = %v, want %v", got, tt.want)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
 	}
 }

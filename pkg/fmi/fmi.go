@@ -366,13 +366,41 @@ func EnterInitializationMode(id FMUID) Status {
 		fmu.logger.Error(fmt.Errorf("Error calling EnterInitializationMode: %w", err))
 		return StatusError
 	}
+	fmu.State = ModelStateInitializationMode
+
 	return StatusOK
 }
 
 //export fmi2ExitInitializationMode
 func fmi2ExitInitializationMode(c C.fmi2Component) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	return C.fmi2Status(ExitInitializationMode(FMUID(c)))
+}
+
+/*
+ExitInitializationMode informs the FMU to exit Initialization Mode.
+For fmuType = fmi2ModelExchange , this function switches off all initialization equations,
+and the FMU enters Event Mode implicitly; that is, all continuous-time and active discrete-
+time equations are available.
+*/
+func ExitInitializationMode(id FMUID) Status {
+	const expected = ModelStateInitializationMode
+	fmu, ok := allowedState(id, "ExitInitializationMode", expected)
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.ExitInitializationMode(); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling ExitInitializationMode: %w", err))
+		return StatusError
+	}
+
+	if fmu.Typee == FMUTypeModelExchange {
+		fmu.State = ModelStateEventMode
+	} else {
+		fmu.State = ModelStateStepComplete
+	}
+
+	return StatusOK
 }
 
 //export fmi2Terminate
