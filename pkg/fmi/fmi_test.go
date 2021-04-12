@@ -57,6 +57,13 @@ func (m mockInstance) ExitInitializationMode() error {
 	return nil
 }
 
+func (m mockInstance) Terminate() error {
+	if m.err {
+		return errors.New("Terminate")
+	}
+	return nil
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -601,6 +608,51 @@ func TestExitInitializationMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := fmi.ExitInitializationMode(tt.args.id); got != tt.want {
 				t.Errorf("ExitInitializationMode() = %v, want %v", got, tt.want)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestTerminate(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusError,
+			fmi.ModelStateInstantiated,
+		},
+		{
+			"Terminate error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateContinuousTimeMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateContinuousTimeMode,
+		},
+		{
+			"Terminate is called",
+			args{
+				id: instantiateDefault(fmi.ModelStateStepComplete),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateTerminated,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.Terminate(tt.args.id); got != tt.want {
+				t.Errorf("Terminate() = %v, want %v", got, tt.want)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

@@ -405,8 +405,30 @@ func ExitInitializationMode(id FMUID) Status {
 
 //export fmi2Terminate
 func fmi2Terminate(c C.fmi2Component) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	return C.fmi2Status(Terminate(FMUID(c)))
+}
+
+/*
+Terminate informs the FMU that the simulation run is terminated. After calling this function, the final
+values of all variables can be inquired with the fmi2GetXXX(..) functions. It is not allowed
+to call this function after one of the functions returned with a status flag of fmi2Error or
+fmi2Fatal .
+*/
+func Terminate(id FMUID) Status {
+	const expected = ModelStateEventMode | ModelStateContinuousTimeMode |
+		ModelStateStepComplete | ModelStateStepFailed
+	fmu, ok := allowedState(id, "Terminate", expected)
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.Terminate(); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling Terminate: %w", err))
+		return StatusError
+	}
+
+	fmu.State = ModelStateTerminated
+	return StatusOK
 }
 
 //export fmi2Reset

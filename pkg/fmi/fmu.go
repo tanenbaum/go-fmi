@@ -78,4 +78,7 @@ type ModelInstance interface {
 
 	// ExitInitializationMode called from fmi2ExitInitializationMode
 	ExitInitializationMode() error
+
+	// Terminate called from fmi2Terminate
+	Terminate() error
 }
