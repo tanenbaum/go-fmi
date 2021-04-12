@@ -433,8 +433,32 @@ func Terminate(id FMUID) Status {
 
 //export fmi2Reset
 func fmi2Reset(c C.fmi2Component) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	return C.fmi2Status(Reset(FMUID(c)))
+}
+
+/*
+Reset is called by the environment to reset the FMU after a simulation run. The FMU goes into the
+same state as if fmi2Instantiate would have been called. All variables have their default
+values. Before starting a new run, fmi2SetupExperiment and
+fmi2EnterInitializationMode have to be called.
+*/
+func Reset(id FMUID) Status {
+	const expected = ModelStateInstantiated | ModelStateInitializationMode |
+		ModelStateEventMode | ModelStateContinuousTimeMode |
+		ModelStateStepComplete | ModelStateStepFailed | ModelStateStepCanceled |
+		ModelStateTerminated | ModelStateError
+	fmu, ok := allowedState(id, "Reset", expected)
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.Reset(); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling Reset: %w", err))
+		return StatusError
+	}
+
+	fmu.State = ModelStateInstantiated
+	return StatusOK
 }
 
 //export fmi2GetReal

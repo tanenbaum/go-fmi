@@ -81,4 +81,7 @@ type ModelInstance interface {
 
 	// Terminate called from fmi2Terminate
 	Terminate() error
+
+	// Reset called from fmi2Reset
+	Reset() error
 }

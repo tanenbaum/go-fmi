@@ -64,6 +64,13 @@ func (m mockInstance) Terminate() error {
 	return nil
 }
 
+func (m mockInstance) Reset() error {
+	if m.err {
+		return errors.New("Reset")
+	}
+	return nil
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -285,7 +292,7 @@ func TestGetFMU(t *testing.T) {
 		{
 			"id does not exist, returns error",
 			args{
-				fmi.FMUID(2),
+				fmi.FMUID(0),
 			},
 			nil,
 			true,
@@ -336,7 +343,7 @@ func TestFreeInstance(t *testing.T) {
 		{
 			"Handles instance that doesn't exist",
 			args{
-				fmi.FMUID(2),
+				fmi.FMUID(0),
 			},
 		},
 		{
@@ -548,7 +555,7 @@ func TestEnterInitializationMode(t *testing.T) {
 				id: instantiateInstanceErrors(),
 			},
 			fmi.StatusError,
-			fmi.ModelStateInitializationMode,
+			fmi.ModelStateInstantiated,
 		},
 		{
 			"EnterInitializationMode is called",
@@ -653,6 +660,51 @@ func TestTerminate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := fmi.Terminate(tt.args.id); got != tt.want {
 				t.Errorf("Terminate() = %v, want %v", got, tt.want)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestReset(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(fmi.ModelStateFatal),
+			},
+			fmi.StatusError,
+			fmi.ModelStateFatal,
+		},
+		{
+			"Reset error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateTerminated),
+			},
+			fmi.StatusError,
+			fmi.ModelStateTerminated,
+		},
+		{
+			"Reset is called",
+			args{
+				id: instantiateDefault(fmi.ModelStateContinuousTimeMode),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateInstantiated,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.Reset(tt.args.id); got != tt.want {
+				t.Errorf("Reset() = %v, want %v", got, tt.want)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
