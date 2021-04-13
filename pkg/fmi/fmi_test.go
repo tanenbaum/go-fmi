@@ -125,6 +125,10 @@ func (m mockInstance) SetBoolean(fmi.ValueReference, []bool) error {
 	return m.errOrNil("SetBoolean")
 }
 
+func (m mockInstance) SetString(fmi.ValueReference, []string) error {
+	return m.errOrNil("SetString")
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -1166,6 +1170,55 @@ func TestSetBoolean(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := fmi.SetBoolean(tt.args.id, tt.args.vr, tt.args.bs); got != tt.want {
 				t.Errorf("SetBoolean() = %v, want %v", got, tt.want)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestSetString(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		ss []string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(fmi.ModelStateError),
+			},
+			fmi.StatusError,
+			fmi.ModelStateError,
+		},
+		{
+			"SetString error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateEventMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateEventMode,
+		},
+		{
+			"SetString called without error",
+			args{
+				instantiateDefault(fmi.ModelStateEventMode),
+				fmi.ValueReference{0, 1},
+				[]string{"a", "b"},
+			},
+			fmi.StatusOK,
+			fmi.ModelStateEventMode,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.SetString(tt.args.id, tt.args.vr, tt.args.ss); got != tt.want {
+				t.Errorf("SetString() = %v, want %v", got, tt.want)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

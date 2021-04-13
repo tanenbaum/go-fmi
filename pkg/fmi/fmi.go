@@ -615,6 +615,7 @@ func fmi2SetReal(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value 
 	return C.fmi2Status(SetReal(FMUID(c), vs, fs))
 }
 
+// SetReal sets floats by value references
 func SetReal(id FMUID, vr ValueReference, fs []float64) Status {
 	fmu, ok := allowedSetValue(id, "SetReal")
 	if !ok {
@@ -643,6 +644,7 @@ func fmi2SetInteger(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, val
 	return C.fmi2Status(SetInteger(FMUID(c), vs, is))
 }
 
+// SetInteger sets ints by value references
 func SetInteger(id FMUID, vr ValueReference, is []int32) Status {
 	fmu, ok := allowedSetValue(id, "SetInteger")
 	if !ok {
@@ -671,6 +673,7 @@ func fmi2SetBoolean(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, val
 	return C.fmi2Status(SetBoolean(FMUID(c), vs, bs))
 }
 
+// SetBoolean sets bools by value references
 func SetBoolean(id FMUID, vr ValueReference, bs []bool) Status {
 	fmu, ok := allowedSetValue(id, "SetBoolean")
 	if !ok {
@@ -687,8 +690,31 @@ func SetBoolean(id FMUID, vr ValueReference, bs []bool) Status {
 
 //export fmi2SetString
 func fmi2SetString(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value C.fmi2Strings_t) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	vs, err := valueReferences(vr, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+
+	ss, err := fmi2Strings(value, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+	return C.fmi2Status(SetString(FMUID(c), vs, ss))
+}
+
+// SetString sets strings by value references
+func SetString(id FMUID, vr ValueReference, ss []string) Status {
+	fmu, ok := allowedSetValue(id, "SetString")
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.SetString(vr, ss); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling SetString: %w", err))
+		return StatusError
+	}
+
+	return StatusOK
 }
 
 //export fmi2GetFMUstate
