@@ -121,6 +121,10 @@ func (m mockInstance) SetInteger(fmi.ValueReference, []int32) error {
 	return m.errOrNil("SetInteger")
 }
 
+func (m mockInstance) SetBoolean(fmi.ValueReference, []bool) error {
+	return m.errOrNil("SetBoolean")
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -1052,7 +1056,9 @@ func TestSetReal(t *testing.T) {
 		{
 			"SetReal called without error",
 			args{
-				id: instantiateDefault(fmi.ModelStateEventMode),
+				instantiateDefault(fmi.ModelStateEventMode),
+				fmi.ValueReference{0, 1},
+				[]float64{1.2, 1.3},
 			},
 			fmi.StatusOK,
 			fmi.ModelStateEventMode,
@@ -1099,7 +1105,9 @@ func TestSetInteger(t *testing.T) {
 		{
 			"SetInteger called without error",
 			args{
-				id: instantiateDefault(fmi.ModelStateEventMode),
+				instantiateDefault(fmi.ModelStateEventMode),
+				fmi.ValueReference{0, 1},
+				[]int32{0, 1},
 			},
 			fmi.StatusOK,
 			fmi.ModelStateEventMode,
@@ -1109,6 +1117,55 @@ func TestSetInteger(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := fmi.SetInteger(tt.args.id, tt.args.vr, tt.args.is); got != tt.want {
 				t.Errorf("SetInteger() = %v, want %v", got, tt.want)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestSetBoolean(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		bs []bool
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(fmi.ModelStateError),
+			},
+			fmi.StatusError,
+			fmi.ModelStateError,
+		},
+		{
+			"SetBoolean error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateEventMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateEventMode,
+		},
+		{
+			"SetBoolean called without error",
+			args{
+				instantiateDefault(fmi.ModelStateEventMode),
+				fmi.ValueReference{0, 1},
+				[]bool{true, false},
+			},
+			fmi.StatusOK,
+			fmi.ModelStateEventMode,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.SetBoolean(tt.args.id, tt.args.vr, tt.args.bs); got != tt.want {
+				t.Errorf("SetBoolean() = %v, want %v", got, tt.want)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

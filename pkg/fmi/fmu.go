@@ -105,4 +105,10 @@ type ModelInstance interface {
 
 	// SetInteger called from fmi2SetInteger
 	SetInteger(ValueReference, []int32) error
+
+	// SetBoolean called from fmi2SetBoolean
+	SetBoolean(ValueReference, []bool) error
+
+	// SetString called from fmi2SetString
+	SetString(ValueReference, []string) error
 }

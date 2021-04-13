@@ -659,8 +659,30 @@ func SetInteger(id FMUID, vr ValueReference, is []int32) Status {
 
 //export fmi2SetBoolean
 func fmi2SetBoolean(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value C.fmi2Booleans_t) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	vs, err := valueReferences(vr, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+
+	bs, err := fmi2Booleans(value, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+	return C.fmi2Status(SetBoolean(FMUID(c), vs, bs))
+}
+
+func SetBoolean(id FMUID, vr ValueReference, bs []bool) Status {
+	fmu, ok := allowedSetValue(id, "SetBoolean")
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.SetBoolean(vr, bs); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling SetBoolean: %w", err))
+		return StatusError
+	}
+
+	return StatusOK
 }
 
 //export fmi2SetString
