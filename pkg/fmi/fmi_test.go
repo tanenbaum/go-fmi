@@ -3,6 +3,7 @@ package fmi_test
 import (
 	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 	"unsafe"
 
@@ -107,6 +108,17 @@ func (m mockInstance) GetBoolean(vr fmi.ValueReference) ([]bool, error) {
 		}
 	}
 	return bs, nil
+}
+
+func (m mockInstance) GetString(vr fmi.ValueReference) ([]string, error) {
+	if m.err {
+		return nil, errors.New("GetString")
+	}
+	ss := make([]string, len(vr))
+	for i := range vr {
+		ss[i] = strconv.Itoa(i)
+	}
+	return ss, nil
 }
 
 func noopLogger(status fmi.Status, category, message string) {}
@@ -938,6 +950,71 @@ func TestGetBoolean(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.args.bs, tt.wantBs) {
 				t.Errorf("Want values %v, got %v", tt.wantBs, tt.args.bs)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestGetString(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		ss []string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+		wantSs    []string
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusError,
+			fmi.ModelStateInstantiated,
+			nil,
+		},
+		{
+			"GetString error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateContinuousTimeMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateContinuousTimeMode,
+			nil,
+		},
+		{
+			"Empty value reference returns no results",
+			args{
+				id: instantiateDefault(fmi.ModelStateStepComplete),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			nil,
+		},
+		{
+			"Values slice is populated",
+			args{
+				instantiateDefault(fmi.ModelStateStepComplete),
+				fmi.ValueReference{0, 1},
+				make([]string, 2),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			[]string{"0", "1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.GetString(tt.args.id, tt.args.vr, tt.args.ss); got != tt.want {
+				t.Errorf("GetString() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.args.ss, tt.wantSs) {
+				t.Errorf("Want values %v, got %v", tt.wantSs, tt.args.ss)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
