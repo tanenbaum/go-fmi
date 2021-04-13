@@ -631,8 +631,30 @@ func SetReal(id FMUID, vr ValueReference, fs []float64) Status {
 
 //export fmi2SetInteger
 func fmi2SetInteger(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value C.fmi2Integers_t) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	vs, err := valueReferences(vr, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+
+	is, err := fmi2Integers(value, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+	return C.fmi2Status(SetInteger(FMUID(c), vs, is))
+}
+
+func SetInteger(id FMUID, vr ValueReference, is []int32) Status {
+	fmu, ok := allowedSetValue(id, "SetInteger")
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.SetInteger(vr, is); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling SetInteger: %w", err))
+		return StatusError
+	}
+
+	return StatusOK
 }
 
 //export fmi2SetBoolean
@@ -906,6 +928,34 @@ func fmi2Reals(value *C.fmi2Real, num C.size_t) ([]float64, error) {
 	ss := make([]float64, num)
 	for i := 0; i < int(num); i++ {
 		ss[i] = float64(vs[i])
+	}
+	return ss, nil
+}
+
+func fmi2Integers(value *C.fmi2Integer, num C.size_t) ([]int32, error) {
+	if num > 0 && value == nil {
+		return nil, fmt.Errorf("fmi2Integer array is null but size is %d", num)
+	}
+
+	var vs []C.fmi2Integer
+	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&vs), int(num))
+	ss := make([]int32, num)
+	for i := 0; i < int(num); i++ {
+		ss[i] = int32(vs[i])
+	}
+	return ss, nil
+}
+
+func fmi2Booleans(value *C.fmi2Boolean, num C.size_t) ([]bool, error) {
+	if num > 0 && value == nil {
+		return nil, fmt.Errorf("fmi2Boolean array is null but size is %d", num)
+	}
+
+	var vs []C.fmi2Boolean
+	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&vs), int(num))
+	ss := make([]bool, num)
+	for i := 0; i < int(num); i++ {
+		ss[i] = fmuBool(vs[i])
 	}
 	return ss, nil
 }

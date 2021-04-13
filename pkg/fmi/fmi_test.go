@@ -117,6 +117,10 @@ func (m mockInstance) SetReal(fmi.ValueReference, []float64) error {
 	return m.errOrNil("SetReal")
 }
 
+func (m mockInstance) SetInteger(fmi.ValueReference, []int32) error {
+	return m.errOrNil("SetInteger")
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -1058,6 +1062,53 @@ func TestSetReal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := fmi.SetReal(tt.args.id, tt.args.vr, tt.args.fs); got != tt.want {
 				t.Errorf("SetReal() = %v, want %v", got, tt.want)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestSetInteger(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		is []int32
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(fmi.ModelStateError),
+			},
+			fmi.StatusError,
+			fmi.ModelStateError,
+		},
+		{
+			"SetInteger error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateEventMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateEventMode,
+		},
+		{
+			"SetInteger called without error",
+			args{
+				id: instantiateDefault(fmi.ModelStateEventMode),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateEventMode,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.SetInteger(tt.args.id, tt.args.vr, tt.args.is); got != tt.want {
+				t.Errorf("SetInteger() = %v, want %v", got, tt.want)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

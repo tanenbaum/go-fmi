@@ -102,4 +102,7 @@ type ModelInstance interface {
 
 	// SetReal called from fmi2SetReal
 	SetReal(ValueReference, []float64) error
+
+	// SetInteger called from fmi2SetInteger
+	SetInteger(ValueReference, []int32) error
 }
