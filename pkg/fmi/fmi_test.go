@@ -94,6 +94,21 @@ func (m mockInstance) GetInteger(vr fmi.ValueReference) ([]int32, error) {
 	return fs, nil
 }
 
+func (m mockInstance) GetBoolean(vr fmi.ValueReference) ([]bool, error) {
+	if m.err {
+		return nil, errors.New("GetBoolean")
+	}
+	bs := make([]bool, len(vr))
+	for i := range vr {
+		if i%2 == 1 {
+			bs[i] = true
+		} else {
+			bs[i] = false
+		}
+	}
+	return bs, nil
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -822,7 +837,7 @@ func TestGetInteger(t *testing.T) {
 			nil,
 		},
 		{
-			"GetReal error is returned",
+			"GetInteger error is returned",
 			args{
 				id: instantiateInstanceErrors(fmi.ModelStateContinuousTimeMode),
 			},
@@ -858,6 +873,71 @@ func TestGetInteger(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.args.is, tt.wantIs) {
 				t.Errorf("Want values %v, got %v", tt.wantIs, tt.args.is)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestGetBoolean(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		bs []bool
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+		wantBs    []bool
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusError,
+			fmi.ModelStateInstantiated,
+			nil,
+		},
+		{
+			"GetBoolean error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateContinuousTimeMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateContinuousTimeMode,
+			nil,
+		},
+		{
+			"Empty value reference returns no results",
+			args{
+				id: instantiateDefault(fmi.ModelStateStepComplete),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			nil,
+		},
+		{
+			"Values slice is populated",
+			args{
+				instantiateDefault(fmi.ModelStateStepComplete),
+				fmi.ValueReference{0, 1},
+				make([]bool, 2),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			[]bool{false, true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.GetBoolean(tt.args.id, tt.args.vr, tt.args.bs); got != tt.want {
+				t.Errorf("GetBoolean() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.args.bs, tt.wantBs) {
+				t.Errorf("Want values %v, got %v", tt.wantBs, tt.args.bs)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

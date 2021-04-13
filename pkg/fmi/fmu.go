@@ -93,4 +93,7 @@ type ModelInstance interface {
 
 	// GetInteger called from fmi2GetInteger
 	GetInteger(vr ValueReference) ([]int32, error)
+
+	// GetBoolean called from fmi2GetBoolean
+	GetBoolean(vr ValueReference) ([]bool, error)
 }

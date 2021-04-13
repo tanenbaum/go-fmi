@@ -533,13 +533,37 @@ func GetInteger(id FMUID, vr ValueReference, is []int32) Status {
 
 //export fmi2GetBoolean
 func fmi2GetBoolean(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value *C.fmi2Boolean) C.fmi2Status {
-	// TODO: implement
-	var vs []C.fmi2Boolean
-	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&vs), int(nvr))
-	for i := 0; i < int(nvr); i++ {
-		vs[i] = 1
+	vs, err := valueReferences(vr, nvr)
+	if err != nil {
+		return logError(c, err)
 	}
+	var bs []C.fmi2Boolean
+	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&bs), int(nvr))
+	bools := make([]bool, len(bs))
+	if s := GetBoolean(FMUID(c), vs, bools); s != StatusOK {
+		return C.fmi2Status(s)
+	}
+	copyBooleanArray(bools, bs)
 	return C.fmi2OK
+}
+
+// GetBoolean gets boolean values by value reference
+func GetBoolean(id FMUID, vr ValueReference, bs []bool) Status {
+	fmu, ok := allowedGetValue(id, "GetBoolean")
+	if !ok {
+		return StatusError
+	}
+
+	fs, err := fmu.instance.GetBoolean(vr)
+	if err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling GetBoolean: %w", err))
+		return StatusError
+	}
+
+	for i, f := range fs {
+		bs[i] = f
+	}
+	return StatusOK
 }
 
 //export fmi2GetString
@@ -842,5 +866,11 @@ func copyRealArray(fs []float64, rs []C.fmi2Real) {
 func copyIntegerArray(vs []int32, is []C.fmi2Integer) {
 	for i, v := range vs {
 		is[i] = C.fmi2Integer(v)
+	}
+}
+
+func copyBooleanArray(vs []bool, bs []C.fmi2Boolean) {
+	for i, v := range vs {
+		bs[i] = boolFMU(v)
 	}
 }
