@@ -37,40 +37,32 @@ func (m mockModel) Instantiate(l fmi.Logger) (fmi.ModelInstance, error) {
 	return m.instance, nil
 }
 
-func (m mockInstance) SetupExperiment(toleranceDefined bool, tolerance float64,
-	startTime float64, stopTimeDefined bool, stopTime float64) error {
+func (m mockInstance) errOrNil(name string) error {
 	if m.err {
-		return errors.New("SetupExperiment")
+		return errors.New(name)
 	}
 	return nil
+}
+
+func (m mockInstance) SetupExperiment(toleranceDefined bool, tolerance float64,
+	startTime float64, stopTimeDefined bool, stopTime float64) error {
+	return m.errOrNil("SetupExperiment")
 }
 
 func (m mockInstance) EnterInitializationMode() error {
-	if m.err {
-		return errors.New("EnterInitializationMode")
-	}
-	return nil
+	return m.errOrNil("EnterInitializationMode")
 }
 
 func (m mockInstance) ExitInitializationMode() error {
-	if m.err {
-		return errors.New("ExitInitializationMode")
-	}
-	return nil
+	return m.errOrNil("ExitInitializationMode")
 }
 
 func (m mockInstance) Terminate() error {
-	if m.err {
-		return errors.New("Terminate")
-	}
-	return nil
+	return m.errOrNil("Terminate")
 }
 
 func (m mockInstance) Reset() error {
-	if m.err {
-		return errors.New("Reset")
-	}
-	return nil
+	return m.errOrNil("Reset")
 }
 
 func (m mockInstance) GetReal(vr fmi.ValueReference) ([]float64, error) {
@@ -119,6 +111,10 @@ func (m mockInstance) GetString(vr fmi.ValueReference) ([]string, error) {
 		ss[i] = strconv.Itoa(i)
 	}
 	return ss, nil
+}
+
+func (m mockInstance) SetReal(fmi.ValueReference, []float64) error {
+	return m.errOrNil("SetReal")
 }
 
 func noopLogger(status fmi.Status, category, message string) {}
@@ -1015,6 +1011,53 @@ func TestGetString(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.args.ss, tt.wantSs) {
 				t.Errorf("Want values %v, got %v", tt.wantSs, tt.args.ss)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestSetReal(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		fs []float64
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(fmi.ModelStateError),
+			},
+			fmi.StatusError,
+			fmi.ModelStateError,
+		},
+		{
+			"SetReal error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateEventMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateEventMode,
+		},
+		{
+			"SetReal called without error",
+			args{
+				id: instantiateDefault(fmi.ModelStateEventMode),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateEventMode,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.SetReal(tt.args.id, tt.args.vr, tt.args.fs); got != tt.want {
+				t.Errorf("SetReal() = %v, want %v", got, tt.want)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

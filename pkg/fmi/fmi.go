@@ -603,8 +603,30 @@ func GetString(id FMUID, vr ValueReference, ss []string) Status {
 
 //export fmi2SetReal
 func fmi2SetReal(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value C.fmi2Reals_t) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	vs, err := valueReferences(vr, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+
+	fs, err := fmi2Reals(value, nvr)
+	if err != nil {
+		return logError(c, err)
+	}
+	return C.fmi2Status(SetReal(FMUID(c), vs, fs))
+}
+
+func SetReal(id FMUID, vr ValueReference, fs []float64) Status {
+	fmu, ok := allowedSetValue(id, "SetReal")
+	if !ok {
+		return StatusError
+	}
+
+	if err := fmu.instance.SetReal(vr, fs); err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling SetReal: %w", err))
+		return StatusError
+	}
+
+	return StatusOK
 }
 
 //export fmi2SetInteger
@@ -825,6 +847,13 @@ func allowedGetValue(id FMUID, name string) (*FMU, bool) {
 		ModelStateEventMode | ModelStateContinuousTimeMode |
 		ModelStateStepComplete | ModelStateStepFailed | ModelStateStepCanceled |
 		ModelStateTerminated | ModelStateError
+	return allowedState(id, name, expected)
+}
+
+func allowedSetValue(id FMUID, name string) (*FMU, bool) {
+	const expected = ModelStateInstantiated | ModelStateInitializationMode |
+		ModelStateEventMode | ModelStateContinuousTimeMode |
+		ModelStateStepComplete
 	return allowedState(id, name, expected)
 }
 

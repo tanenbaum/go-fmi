@@ -89,14 +89,17 @@ type ModelInstance interface {
 	Reset() error
 
 	// GetReal called from fmi2GetReal
-	GetReal(vr ValueReference) ([]float64, error)
+	GetReal(ValueReference) ([]float64, error)
 
 	// GetInteger called from fmi2GetInteger
-	GetInteger(vr ValueReference) ([]int32, error)
+	GetInteger(ValueReference) ([]int32, error)
 
 	// GetBoolean called from fmi2GetBoolean
-	GetBoolean(vr ValueReference) ([]bool, error)
+	GetBoolean(ValueReference) ([]bool, error)
 
 	// GetString called from fmi2GetString
-	GetString(vr ValueReference) ([]string, error)
+	GetString(ValueReference) ([]string, error)
+
+	// SetReal called from fmi2SetReal
+	SetReal(ValueReference, []float64) error
 }
