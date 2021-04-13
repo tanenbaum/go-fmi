@@ -90,4 +90,7 @@ type ModelInstance interface {
 
 	// GetReal called from fmi2GetReal
 	GetReal(vr ValueReference) ([]float64, error)
+
+	// GetInteger called from fmi2GetInteger
+	GetInteger(vr ValueReference) ([]int32, error)
 }

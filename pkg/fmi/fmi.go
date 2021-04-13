@@ -498,13 +498,37 @@ func GetReal(id FMUID, vr ValueReference, rs []float64) Status {
 
 //export fmi2GetInteger
 func fmi2GetInteger(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value *C.fmi2Integer) C.fmi2Status {
-	// TODO: implement
-	var vs []C.fmi2Integer
-	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&vs), int(nvr))
-	for i := 0; i < int(nvr); i++ {
-		vs[i] = 1
+	vs, err := valueReferences(vr, nvr)
+	if err != nil {
+		return logError(c, err)
 	}
+	var is []C.fmi2Integer
+	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&is), int(nvr))
+	ints := make([]int32, len(is))
+	if s := GetInteger(FMUID(c), vs, ints); s != StatusOK {
+		return C.fmi2Status(s)
+	}
+	copyIntegerArray(ints, is)
 	return C.fmi2OK
+}
+
+// GetInteger gets integer values by value reference
+func GetInteger(id FMUID, vr ValueReference, is []int32) Status {
+	fmu, ok := allowedGetValue(id, "GetInteger")
+	if !ok {
+		return StatusError
+	}
+
+	fs, err := fmu.instance.GetInteger(vr)
+	if err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling GetInteger: %w", err))
+		return StatusError
+	}
+
+	for i, f := range fs {
+		is[i] = f
+	}
+	return StatusOK
 }
 
 //export fmi2GetBoolean
@@ -812,5 +836,11 @@ func fmi2Reals(value *C.fmi2Real, num C.size_t) ([]float64, error) {
 func copyRealArray(fs []float64, rs []C.fmi2Real) {
 	for i, f := range fs {
 		rs[i] = C.fmi2Real(f)
+	}
+}
+
+func copyIntegerArray(vs []int32, is []C.fmi2Integer) {
+	for i, v := range vs {
+		is[i] = C.fmi2Integer(v)
 	}
 }

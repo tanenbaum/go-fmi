@@ -83,6 +83,17 @@ func (m mockInstance) GetReal(vr fmi.ValueReference) ([]float64, error) {
 	return fs, nil
 }
 
+func (m mockInstance) GetInteger(vr fmi.ValueReference) ([]int32, error) {
+	if m.err {
+		return nil, errors.New("GetInteger")
+	}
+	fs := make([]int32, len(vr))
+	for i := range vr {
+		fs[i] = int32(i)
+	}
+	return fs, nil
+}
+
 func noopLogger(status fmi.Status, category, message string) {}
 
 // model setup for testing
@@ -782,6 +793,71 @@ func TestGetReal(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.args.rs, tt.wantRs) {
 				t.Errorf("Want values %v, got %v", tt.wantRs, tt.args.rs)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestGetInteger(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		is []int32
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+		wantIs    []int32
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusError,
+			fmi.ModelStateInstantiated,
+			nil,
+		},
+		{
+			"GetReal error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateContinuousTimeMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateContinuousTimeMode,
+			nil,
+		},
+		{
+			"Empty value reference returns no results",
+			args{
+				id: instantiateDefault(fmi.ModelStateStepComplete),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			nil,
+		},
+		{
+			"Values slice is populated",
+			args{
+				instantiateDefault(fmi.ModelStateStepComplete),
+				fmi.ValueReference{0, 1},
+				make([]int32, 2),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			[]int32{0, 1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.GetInteger(tt.args.id, tt.args.vr, tt.args.is); got != tt.want {
+				t.Errorf("GetInteger() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.args.is, tt.wantIs) {
+				t.Errorf("Want values %v, got %v", tt.wantIs, tt.args.is)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
