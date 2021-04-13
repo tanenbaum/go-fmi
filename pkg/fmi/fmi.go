@@ -463,13 +463,37 @@ func Reset(id FMUID) Status {
 
 //export fmi2GetReal
 func fmi2GetReal(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value *C.fmi2Real) C.fmi2Status {
-	// TODO: implement
-	var vs []C.fmi2Real
-	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&vs), int(nvr))
-	for i := 0; i < int(nvr); i++ {
-		vs[i] = 1.0
+	vs, err := valueReferences(vr, nvr)
+	if err != nil {
+		return logError(c, err)
 	}
+	var rs []C.fmi2Real
+	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&rs), int(nvr))
+	fs := make([]float64, len(rs))
+	if s := GetReal(FMUID(c), vs, fs); s != StatusOK {
+		return C.fmi2Status(s)
+	}
+	copyRealArray(fs, rs)
 	return C.fmi2OK
+}
+
+// GetReal gets real values by value reference
+func GetReal(id FMUID, vr ValueReference, rs []float64) Status {
+	fmu, ok := allowedGetValue(id, "GetReal")
+	if !ok {
+		return StatusError
+	}
+
+	fs, err := fmu.instance.GetReal(vr)
+	if err != nil {
+		fmu.logger.Error(fmt.Errorf("Error calling GetReal: %w", err))
+		return StatusError
+	}
+
+	for i, f := range fs {
+		rs[i] = f
+	}
+	return StatusOK
 }
 
 //export fmi2GetInteger
@@ -714,9 +738,79 @@ func allowedState(id FMUID, name string, expected ModelState) (*FMU, bool) {
 	return fmu, true
 }
 
+func logError(c C.fmi2Component, err error) C.fmi2Status {
+	_, fmu, err := getFMU(c)
+	if err != nil {
+		return C.fmi2Error
+	}
+
+	fmu.logger.Error(err)
+	return C.fmi2Error
+}
+
+func allowedGetValue(id FMUID, name string) (*FMU, bool) {
+	const expected = ModelStateInitializationMode |
+		ModelStateEventMode | ModelStateContinuousTimeMode |
+		ModelStateStepComplete | ModelStateStepFailed | ModelStateStepCanceled |
+		ModelStateTerminated | ModelStateError
+	return allowedState(id, name, expected)
+}
+
 func carrayToSlice(carray unsafe.Pointer, slice unsafe.Pointer, len int) {
 	sliceHeader := (*reflect.SliceHeader)(slice)
 	sliceHeader.Cap = len
 	sliceHeader.Len = len
 	sliceHeader.Data = uintptr(carray)
+}
+
+func valueReferences(vr C.valueReferences_t, nvr C.size_t) (ValueReference, error) {
+	if nvr == 0 {
+		return nil, nil
+	}
+
+	if nvr > 0 && vr == nil {
+		return nil, fmt.Errorf("Value references array is null but size is %d", nvr)
+	}
+
+	var vs []C.fmi2ValueReference
+	carrayToSlice(unsafe.Pointer(vr), unsafe.Pointer(&vs), int(nvr))
+	vrs := make(ValueReference, nvr)
+	for i := 0; i < int(nvr); i++ {
+		vrs[i] = uint(vs[i])
+	}
+	return vrs, nil
+}
+
+func fmi2Strings(value *C.fmi2String, num C.size_t) ([]string, error) {
+	if num > 0 && value == nil {
+		return nil, fmt.Errorf("fmi2String array is null but size is %d", num)
+	}
+
+	var vs []C.fmi2String
+	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&vs), int(num))
+	ss := make([]string, num)
+	for i := 0; i < int(num); i++ {
+		ss[i] = C.GoString(vs[i])
+	}
+	return ss, nil
+}
+
+func fmi2Reals(value *C.fmi2Real, num C.size_t) ([]float64, error) {
+	if num > 0 && value == nil {
+		return nil, fmt.Errorf("fmi2Real array is null but size is %d", num)
+	}
+
+	var vs []C.fmi2Real
+	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&vs), int(num))
+	ss := make([]float64, num)
+	for i := 0; i < int(num); i++ {
+		ss[i] = float64(vs[i])
+	}
+	return ss, nil
+}
+
+func copyRealArray(fs []float64, rs []C.fmi2Real) {
+	for i, f := range fs {
+		rs[i] = C.fmi2Real(f)
+	}
 }

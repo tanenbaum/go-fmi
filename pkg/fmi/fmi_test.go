@@ -2,6 +2,7 @@ package fmi_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"unsafe"
 
@@ -69,6 +70,17 @@ func (m mockInstance) Reset() error {
 		return errors.New("Reset")
 	}
 	return nil
+}
+
+func (m mockInstance) GetReal(vr fmi.ValueReference) ([]float64, error) {
+	if m.err {
+		return nil, errors.New("GetReal")
+	}
+	fs := make([]float64, len(vr))
+	for i := range vr {
+		fs[i] = float64(i)
+	}
+	return fs, nil
 }
 
 func noopLogger(status fmi.Status, category, message string) {}
@@ -705,6 +717,71 @@ func TestReset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := fmi.Reset(tt.args.id); got != tt.want {
 				t.Errorf("Reset() = %v, want %v", got, tt.want)
+			}
+			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestGetReal(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		vr fmi.ValueReference
+		rs []float64
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      fmi.Status
+		wantState fmi.ModelState
+		wantRs    []float64
+	}{
+		{
+			"FMU state is invalid",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusError,
+			fmi.ModelStateInstantiated,
+			nil,
+		},
+		{
+			"GetReal error is returned",
+			args{
+				id: instantiateInstanceErrors(fmi.ModelStateContinuousTimeMode),
+			},
+			fmi.StatusError,
+			fmi.ModelStateContinuousTimeMode,
+			nil,
+		},
+		{
+			"Empty value reference returns no results",
+			args{
+				id: instantiateDefault(fmi.ModelStateStepComplete),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			nil,
+		},
+		{
+			"Values slice is populated",
+			args{
+				instantiateDefault(fmi.ModelStateStepComplete),
+				fmi.ValueReference{0, 1},
+				make([]float64, 2),
+			},
+			fmi.StatusOK,
+			fmi.ModelStateStepComplete,
+			[]float64{0, 1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.GetReal(tt.args.id, tt.args.vr, tt.args.rs); got != tt.want {
+				t.Errorf("GetReal() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.args.rs, tt.wantRs) {
+				t.Errorf("Want values %v, got %v", tt.wantRs, tt.args.rs)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

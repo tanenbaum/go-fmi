@@ -36,9 +36,6 @@ const (
 // FMUType is type of FMU
 type FMUType uint
 
-// Status is return status of functions
-type Status uint
-
 // ModelState represents state machine of model
 type ModelState uint
 
@@ -53,6 +50,12 @@ type FMU struct {
 	logger   Logger
 	instance ModelInstance
 }
+
+// Status is return status of functions
+type Status uint
+
+// ValueReference is list of indexes to model values
+type ValueReference []uint
 
 // Model represents an FMU model to be executed in model-exchange or co-simulation
 type Model interface {
@@ -84,4 +87,7 @@ type ModelInstance interface {
 
 	// Reset called from fmi2Reset
 	Reset() error
+
+	// GetReal called from fmi2GetReal
+	GetReal(vr ValueReference) ([]float64, error)
 }
