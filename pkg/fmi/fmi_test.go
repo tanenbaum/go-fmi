@@ -21,7 +21,8 @@ type mockModel struct {
 
 type mockInstance struct {
 	fmi.ModelInstance
-	err bool
+	err        bool
+	stepResult fmi.StepResult
 }
 
 func (m mockModel) Description() fmi.ModelDescription {
@@ -127,6 +128,15 @@ func (m mockInstance) SetBoolean(fmi.ValueReference, []bool) error {
 
 func (m mockInstance) SetString(fmi.ValueReference, []string) error {
 	return m.errOrNil("SetString")
+}
+
+func (m mockInstance) DoStep(
+	currentCommunicationPoint, communicationStepSize float64,
+	noSetFMUStatePriorToCurrentPoint bool) (fmi.StepResult, error) {
+	if m.err {
+		return 0, errors.New("DoStep")
+	}
+	return m.stepResult, nil
 }
 
 func noopLogger(status fmi.Status, category, message string) {}
@@ -1221,6 +1231,72 @@ func TestSetString(t *testing.T) {
 				t.Errorf("SetString() = %v, want %v", got, tt.want)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
+		})
+	}
+}
+
+func TestDoStep(t *testing.T) {
+	type args struct {
+		id                               fmi.FMUID
+		currentCommunicationPoint        float64
+		communicationStepSize            float64
+		noSetFMUStatePriorToCurrentPoint bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want fmi.Status
+	}{
+		{
+			"Model state is invalid",
+			args{
+				id: instantiateDefault(),
+			},
+			fmi.StatusError,
+		},
+		{
+			"Communication step size must be positive",
+			args{
+				id:                    instantiateDefault(fmi.ModelStateStepComplete),
+				communicationStepSize: 0,
+			},
+			fmi.StatusError,
+		},
+		{
+			"FMU type should be cosimulation",
+			args{
+				id: func() fmi.FMUID {
+					id := instantiateDefault(fmi.ModelStateStepComplete)
+					fmu, _ := fmi.GetFMU(id)
+					fmu.Typee = fmi.FMUTypeModelExchange
+					return id
+				}(),
+				communicationStepSize: 1,
+			},
+			fmi.StatusError,
+		},
+		{
+			"DoStep error is returned",
+			args{
+				id:                    instantiateInstanceErrors(fmi.ModelStateStepComplete),
+				communicationStepSize: 1,
+			},
+			fmi.StatusError,
+		},
+		{
+			"Successful step result is returned",
+			args{
+				id:                    instantiateDefault(fmi.ModelStateStepComplete),
+				communicationStepSize: 1,
+			},
+			fmi.StatusOK,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.DoStep(tt.args.id, tt.args.currentCommunicationPoint, tt.args.communicationStepSize, tt.args.noSetFMUStatePriorToCurrentPoint); got != tt.want {
+				t.Errorf("DoStep() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

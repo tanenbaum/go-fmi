@@ -484,7 +484,13 @@ func GetReal(id FMUID, vr ValueReference, rs []float64) Status {
 		return StatusError
 	}
 
-	fs, err := fmu.instance.GetReal(vr)
+	vg, err := fmu.ValueGetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	fs, err := vg.GetReal(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetReal: %w", err))
 		return StatusError
@@ -519,7 +525,13 @@ func GetInteger(id FMUID, vr ValueReference, is []int32) Status {
 		return StatusError
 	}
 
-	fs, err := fmu.instance.GetInteger(vr)
+	vg, err := fmu.ValueGetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	fs, err := vg.GetInteger(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetInteger: %w", err))
 		return StatusError
@@ -554,7 +566,13 @@ func GetBoolean(id FMUID, vr ValueReference, bs []bool) Status {
 		return StatusError
 	}
 
-	fs, err := fmu.instance.GetBoolean(vr)
+	vg, err := fmu.ValueGetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	fs, err := vg.GetBoolean(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetBoolean: %w", err))
 		return StatusError
@@ -589,7 +607,13 @@ func GetString(id FMUID, vr ValueReference, ss []string) Status {
 		return StatusError
 	}
 
-	fs, err := fmu.instance.GetString(vr)
+	vg, err := fmu.ValueGetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	fs, err := vg.GetString(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetString: %w", err))
 		return StatusError
@@ -622,7 +646,13 @@ func SetReal(id FMUID, vr ValueReference, fs []float64) Status {
 		return StatusError
 	}
 
-	if err := fmu.instance.SetReal(vr, fs); err != nil {
+	vs, err := fmu.ValueSetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	if err := vs.SetReal(vr, fs); err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling SetReal: %w", err))
 		return StatusError
 	}
@@ -651,7 +681,13 @@ func SetInteger(id FMUID, vr ValueReference, is []int32) Status {
 		return StatusError
 	}
 
-	if err := fmu.instance.SetInteger(vr, is); err != nil {
+	vs, err := fmu.ValueSetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	if err := vs.SetInteger(vr, is); err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling SetInteger: %w", err))
 		return StatusError
 	}
@@ -680,7 +716,13 @@ func SetBoolean(id FMUID, vr ValueReference, bs []bool) Status {
 		return StatusError
 	}
 
-	if err := fmu.instance.SetBoolean(vr, bs); err != nil {
+	vs, err := fmu.ValueSetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	if err := vs.SetBoolean(vr, bs); err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling SetBoolean: %w", err))
 		return StatusError
 	}
@@ -709,7 +751,13 @@ func SetString(id FMUID, vr ValueReference, ss []string) Status {
 		return StatusError
 	}
 
-	if err := fmu.instance.SetString(vr, ss); err != nil {
+	vs, err := fmu.ValueSetter()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	if err := vs.SetString(vr, ss); err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling SetString: %w", err))
 		return StatusError
 	}
@@ -835,8 +883,79 @@ func fmi2GetRealOutputDerivatives(c C.fmi2Component, vr C.valueReferences_t, nvr
 
 //export fmi2DoStep
 func fmi2DoStep(c C.fmi2Component, currentCommunicationPoint, communicationStepSize C.fmi2Real, noSetFMUStatePriorToCurrentPoint C.fmi2Boolean) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	return C.fmi2Status(DoStep(FMUID(c), float64(currentCommunicationPoint), float64(communicationStepSize), fmuBool(noSetFMUStatePriorToCurrentPoint)))
+}
+
+/*
+DoStep - computation of a time step is started.
+Argument currentCommunicationPoint is the current communication point of the master
+(tc i ) and argument communicationStepSize is the communication step size (hc i ).
+The latter must be > 0.0. The slave must integrate until time instant tc i+1 = tc i + hc i . [The calling
+environment defines the communication points and DoStep must synchronize to these
+points by always integrating exactly to tc i + hc i . It is up to DoStep how to achieve this.]
+At the first call to fmiDoStep after fmi2ExitInitializationMode was called
+currentCommunicationPoint must be equal to startTime as set with
+fmi2SetupExperiment . [Formally, argument currentCommunicationPoint is not
+needed. It is present in order to handle a mismatch between the master and the FMU state
+of the slave: The currentCommunicationPoint and the FMU state of the slaves defined
+by former DoStep or fmi2SetFMUState calls have to be consistent with respect to
+each other. For example, if the slave does not use the update formula for the independent
+variable as required above, tc i+1 = tc i + hc i (using argument tc i =
+currentCommunicationPoint of DoStep ) but uses internally an own update formula,
+such as tc s,i+1 = tc s,i + hc s,i then the slave could use as time increment hc s,i : = (tc i − tc s,i ) +
+hc i (instead of hc s,i : = hc i ,) to avoid a mismatch between the master time tc i+1 and the slave
+internal time tc s,i+1 for large i.]
+Argument noSetFMUStatePriorToCurrentPoint is fmi2True if fmi2SetFMUState
+will no longer be called for time instants prior to currentCommunicationPoint in this
+simulation run [the slave can use this flag to flush a result buffer].
+The function returns:
+fmi2OK – if the communication step was computed successfully until its end.
+fmi2Discard – if the slave computed successfully only a subinterval of the communication
+step. The master can call the appropriate fmi2GetXXXStatus functions to get further
+information. If possible, the master should retry the simulation with a shorter communication
+step size. [Redoing a step is only possible if the FMU state has been recorded at the
+beginning of the current (failed) step with fmi2GetFMUState . Redoing a step is performed
+by calling fmi2SetFMUState and afterwards calling DoStep with the new
+communicationStepSize . Note that it is not possible to change
+currentCommunicationPoint in such a call.]
+fmi2Error – the communication step could not be carried out at all. The master can try to
+repeat the step with other input values and/or a different communication step size in the
+same way as described in the fmi2Discard case above.
+fmi2Fatal – if an error occurred which corrupted the FMU irreparably. [The master should
+stop the simulation run immediatlely.] See section 2.1.3 for details.
+fmi2Pending – this status is returned if the slave executes the function asynchronously.
+That means the slave starts the computation but returns immediately. The master has to call
+fmi2GetStatus(...,DoStep,...) to find out if the slave is done. An alternative is to
+wait until the callback function fmi2StepFinished is called by the slave. fmi2CancelStep
+can be called to cancel the current computation. It is not allowed to call any other function
+during a pending DoStep.
+*/
+func DoStep(id FMUID, currentCommunicationPoint, communicationStepSize float64, noSetFMUStatePriorToCurrentPoint bool) Status {
+	const expected = ModelStateStepComplete
+	fmu, ok := allowedState(id, "DoStep", expected)
+	if !ok {
+		return StatusError
+	}
+
+	if communicationStepSize <= 0 {
+		fmu.logger.Error(fmt.Errorf("DoStep communication step size must be > 0 but was %f.", communicationStepSize))
+		return StatusError
+	}
+
+	cosim, err := fmu.CoSimulator()
+	if err != nil {
+		fmu.logger.Error(err)
+		return StatusError
+	}
+
+	res, err := cosim.DoStep(
+		currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint)
+	if err != nil {
+		fmu.logger.Error(fmt.Errorf("Error running DoStep: %w", err))
+		return StatusError
+	}
+
+	return res.Status()
 }
 
 //export fmi2CancelStep
