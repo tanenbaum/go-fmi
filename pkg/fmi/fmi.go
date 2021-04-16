@@ -340,6 +340,7 @@ func SetupExperiment(id FMUID, toleranceDefined bool, tolerance float64,
 		fmu.logger.Error(fmt.Errorf("Error calling SetupExperiment: %w", err))
 		return StatusError
 	}
+	fmu.startTime = startTime
 	return StatusOK
 }
 

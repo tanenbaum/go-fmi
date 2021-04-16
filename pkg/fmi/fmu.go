@@ -61,8 +61,9 @@ type FMU struct {
 	ResourceLocation string
 	State            ModelState
 
-	logger   Logger
-	instance ModelInstance
+	logger    Logger
+	instance  ModelInstance
+	startTime float64
 }
 
 // Status is return status of functions
