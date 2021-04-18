@@ -783,7 +783,6 @@ func TestGetReal(t *testing.T) {
 	type args struct {
 		id fmi.FMUID
 		vr fmi.ValueReference
-		rs []float64
 	}
 	tests := []struct {
 		name      string
@@ -817,14 +816,13 @@ func TestGetReal(t *testing.T) {
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
-			nil,
+			[]float64{},
 		},
 		{
 			"Values slice is populated",
 			args{
 				instantiateDefault(fmi.ModelStateStepComplete),
 				fmi.ValueReference{0, 1},
-				make([]float64, 2),
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
@@ -833,11 +831,12 @@ func TestGetReal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := fmi.GetReal(tt.args.id, tt.args.vr, tt.args.rs); got != tt.want {
+			rs, got := fmi.GetReal(tt.args.id, tt.args.vr)
+			if got != tt.want {
 				t.Errorf("GetReal() = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(tt.args.rs, tt.wantRs) {
-				t.Errorf("Want values %v, got %v", tt.wantRs, tt.args.rs)
+			if !reflect.DeepEqual(rs, tt.wantRs) {
+				t.Errorf("Want values %v, got %v", tt.wantRs, rs)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
@@ -848,7 +847,6 @@ func TestGetInteger(t *testing.T) {
 	type args struct {
 		id fmi.FMUID
 		vr fmi.ValueReference
-		is []int32
 	}
 	tests := []struct {
 		name      string
@@ -882,14 +880,13 @@ func TestGetInteger(t *testing.T) {
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
-			nil,
+			[]int32{},
 		},
 		{
 			"Values slice is populated",
 			args{
 				instantiateDefault(fmi.ModelStateStepComplete),
 				fmi.ValueReference{0, 1},
-				make([]int32, 2),
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
@@ -898,11 +895,12 @@ func TestGetInteger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := fmi.GetInteger(tt.args.id, tt.args.vr, tt.args.is); got != tt.want {
+			is, got := fmi.GetInteger(tt.args.id, tt.args.vr)
+			if got != tt.want {
 				t.Errorf("GetInteger() = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(tt.args.is, tt.wantIs) {
-				t.Errorf("Want values %v, got %v", tt.wantIs, tt.args.is)
+			if !reflect.DeepEqual(is, tt.wantIs) {
+				t.Errorf("Want values %v, got %v", tt.wantIs, is)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
@@ -913,7 +911,6 @@ func TestGetBoolean(t *testing.T) {
 	type args struct {
 		id fmi.FMUID
 		vr fmi.ValueReference
-		bs []bool
 	}
 	tests := []struct {
 		name      string
@@ -947,14 +944,13 @@ func TestGetBoolean(t *testing.T) {
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
-			nil,
+			[]bool{},
 		},
 		{
 			"Values slice is populated",
 			args{
 				instantiateDefault(fmi.ModelStateStepComplete),
 				fmi.ValueReference{0, 1},
-				make([]bool, 2),
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
@@ -963,11 +959,12 @@ func TestGetBoolean(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := fmi.GetBoolean(tt.args.id, tt.args.vr, tt.args.bs); got != tt.want {
+			bs, got := fmi.GetBoolean(tt.args.id, tt.args.vr)
+			if got != tt.want {
 				t.Errorf("GetBoolean() = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(tt.args.bs, tt.wantBs) {
-				t.Errorf("Want values %v, got %v", tt.wantBs, tt.args.bs)
+			if !reflect.DeepEqual(bs, tt.wantBs) {
+				t.Errorf("Want values %v, got %v", tt.wantBs, bs)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})
@@ -978,7 +975,6 @@ func TestGetString(t *testing.T) {
 	type args struct {
 		id fmi.FMUID
 		vr fmi.ValueReference
-		ss []string
 	}
 	tests := []struct {
 		name      string
@@ -1012,14 +1008,13 @@ func TestGetString(t *testing.T) {
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
-			nil,
+			[]string{},
 		},
 		{
 			"Values slice is populated",
 			args{
 				instantiateDefault(fmi.ModelStateStepComplete),
 				fmi.ValueReference{0, 1},
-				make([]string, 2),
 			},
 			fmi.StatusOK,
 			fmi.ModelStateStepComplete,
@@ -1028,11 +1023,12 @@ func TestGetString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := fmi.GetString(tt.args.id, tt.args.vr, tt.args.ss); got != tt.want {
+			ss, got := fmi.GetString(tt.args.id, tt.args.vr)
+			if got != tt.want {
 				t.Errorf("GetString() = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(tt.args.ss, tt.wantSs) {
-				t.Errorf("Want values %v, got %v", tt.wantSs, tt.args.ss)
+			if !reflect.DeepEqual(ss, tt.wantSs) {
+				t.Errorf("Want values %v, got %v", tt.wantSs, ss)
 			}
 			verifyFMUStateAndCleanUp(t, tt.args.id, tt.wantState)
 		})

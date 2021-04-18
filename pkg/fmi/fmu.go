@@ -169,6 +169,20 @@ type ValueGetterSetter interface {
 	ValueSetter
 }
 
+// StateEncoder to be implemented by models that support state serialization.
+// Used by fmi2GetFMUstate, fmi2SerializedFMUstateSize and fmi2SerializeFMUstate.
+type StateEncoder interface {
+	// Encode internal state into byte slice or return error
+	Encode() ([]byte, error)
+}
+
+// StateDecoder to be implemented by models that support state serialization
+// Used by fmi2SetFMUstate and fmi2DeSerializeFMUstate.
+type StateDecoder interface {
+	// Decode state byte slice and replace internal state or return error
+	Decode([]byte) error
+}
+
 func (f *FMU) ValueGetter() (ValueGetter, error) {
 	return f.valueGetterSetter()
 }
@@ -211,4 +225,20 @@ func (f *FMU) valueGetterSetter() (ValueGetterSetter, error) {
 		return f.modelExchanger()
 	}
 	return nil, fmt.Errorf("Unknown FMU type %v", f.Typee)
+}
+
+func (f *FMU) StateEncoder() (StateEncoder, error) {
+	se, ok := f.instance.(StateEncoder)
+	if !ok {
+		return nil, errors.New("FMU model instance does not implement state encoding for getting FMU state")
+	}
+	return se, nil
+}
+
+func (f *FMU) StateDecoder() (StateDecoder, error) {
+	sd, ok := f.instance.(StateDecoder)
+	if !ok {
+		return nil, errors.New("FMU model instance does not implement state decoding for setting FMU state")
+	}
+	return sd, nil
 }

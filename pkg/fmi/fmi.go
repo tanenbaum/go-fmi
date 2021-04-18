@@ -470,8 +470,8 @@ func fmi2GetReal(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value 
 	}
 	var rs []C.fmi2Real
 	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&rs), int(nvr))
-	fs := make([]float64, len(rs))
-	if s := GetReal(FMUID(c), vs, fs); s != StatusOK {
+	fs, s := GetReal(FMUID(c), vs)
+	if s == StatusOK {
 		return C.fmi2Status(s)
 	}
 	copyRealArray(fs, rs)
@@ -479,28 +479,24 @@ func fmi2GetReal(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value 
 }
 
 // GetReal gets real values by value reference
-func GetReal(id FMUID, vr ValueReference, rs []float64) Status {
+func GetReal(id FMUID, vr ValueReference) ([]float64, Status) {
 	fmu, ok := allowedGetValue(id, "GetReal")
 	if !ok {
-		return StatusError
+		return nil, StatusError
 	}
 
 	vg, err := fmu.ValueGetter()
 	if err != nil {
 		fmu.logger.Error(err)
-		return StatusError
+		return nil, StatusError
 	}
 
 	fs, err := vg.GetReal(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetReal: %w", err))
-		return StatusError
+		return nil, StatusError
 	}
-
-	for i, f := range fs {
-		rs[i] = f
-	}
-	return StatusOK
+	return fs, StatusOK
 }
 
 //export fmi2GetInteger
@@ -511,8 +507,8 @@ func fmi2GetInteger(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, val
 	}
 	var is []C.fmi2Integer
 	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&is), int(nvr))
-	ints := make([]int32, len(is))
-	if s := GetInteger(FMUID(c), vs, ints); s != StatusOK {
+	ints, s := GetInteger(FMUID(c), vs)
+	if s != StatusOK {
 		return C.fmi2Status(s)
 	}
 	copyIntegerArray(ints, is)
@@ -520,28 +516,24 @@ func fmi2GetInteger(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, val
 }
 
 // GetInteger gets integer values by value reference
-func GetInteger(id FMUID, vr ValueReference, is []int32) Status {
+func GetInteger(id FMUID, vr ValueReference) ([]int32, Status) {
 	fmu, ok := allowedGetValue(id, "GetInteger")
 	if !ok {
-		return StatusError
+		return nil, StatusError
 	}
 
 	vg, err := fmu.ValueGetter()
 	if err != nil {
 		fmu.logger.Error(err)
-		return StatusError
+		return nil, StatusError
 	}
 
-	fs, err := vg.GetInteger(vr)
+	is, err := vg.GetInteger(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetInteger: %w", err))
-		return StatusError
+		return nil, StatusError
 	}
-
-	for i, f := range fs {
-		is[i] = f
-	}
-	return StatusOK
+	return is, StatusOK
 }
 
 //export fmi2GetBoolean
@@ -552,8 +544,8 @@ func fmi2GetBoolean(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, val
 	}
 	var bs []C.fmi2Boolean
 	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&bs), int(nvr))
-	bools := make([]bool, len(bs))
-	if s := GetBoolean(FMUID(c), vs, bools); s != StatusOK {
+	bools, s := GetBoolean(FMUID(c), vs)
+	if s != StatusOK {
 		return C.fmi2Status(s)
 	}
 	copyBooleanArray(bools, bs)
@@ -561,28 +553,25 @@ func fmi2GetBoolean(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, val
 }
 
 // GetBoolean gets boolean values by value reference
-func GetBoolean(id FMUID, vr ValueReference, bs []bool) Status {
+func GetBoolean(id FMUID, vr ValueReference) ([]bool, Status) {
 	fmu, ok := allowedGetValue(id, "GetBoolean")
 	if !ok {
-		return StatusError
+		return nil, StatusError
 	}
 
 	vg, err := fmu.ValueGetter()
 	if err != nil {
 		fmu.logger.Error(err)
-		return StatusError
+		return nil, StatusError
 	}
 
-	fs, err := vg.GetBoolean(vr)
+	bs, err := vg.GetBoolean(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetBoolean: %w", err))
-		return StatusError
+		return nil, StatusError
 	}
 
-	for i, f := range fs {
-		bs[i] = f
-	}
-	return StatusOK
+	return bs, StatusOK
 }
 
 //export fmi2GetString
@@ -593,8 +582,8 @@ func fmi2GetString(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, valu
 	}
 	var ss []C.fmi2String
 	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&ss), int(nvr))
-	strs := make([]string, len(ss))
-	if s := GetString(FMUID(c), vs, strs); s != StatusOK {
+	strs, s := GetString(FMUID(c), vs)
+	if s != StatusOK {
 		return C.fmi2Status(s)
 	}
 	copyStringArray(strs, ss)
@@ -602,28 +591,25 @@ func fmi2GetString(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, valu
 }
 
 // GetString gets string values by value reference
-func GetString(id FMUID, vr ValueReference, ss []string) Status {
+func GetString(id FMUID, vr ValueReference) ([]string, Status) {
 	fmu, ok := allowedGetValue(id, "GetString")
 	if !ok {
-		return StatusError
+		return nil, StatusError
 	}
 
 	vg, err := fmu.ValueGetter()
 	if err != nil {
 		fmu.logger.Error(err)
-		return StatusError
+		return nil, StatusError
 	}
 
-	fs, err := vg.GetString(vr)
+	ss, err := vg.GetString(vr)
 	if err != nil {
 		fmu.logger.Error(fmt.Errorf("Error calling GetString: %w", err))
-		return StatusError
+		return nil, StatusError
 	}
 
-	for i, f := range fs {
-		ss[i] = f
-	}
-	return StatusOK
+	return ss, StatusOK
 }
 
 //export fmi2SetReal
@@ -768,8 +754,47 @@ func SetString(id FMUID, vr ValueReference, ss []string) Status {
 
 //export fmi2GetFMUstate
 func fmi2GetFMUstate(c C.fmi2Component, FMUstate *C.fmi2FMUstate) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
+	bs, s := GetFMUState(FMUID(c))
+	if s != StatusOK {
+		return C.fmi2Status(s)
+	}
+
+	p := C.fmi2FMUstate(C.CBytes(bs))
+	FMUstate = &p
+	return C.fmi2Status(s)
+}
+
+/*
+GetFMUstate makes a copy of the internal FMU state and returns a byte array.
+(FMUstate). If on entry *FMUstate == NULL, a new allocation is required. If *FMUstate !=
+NULL , then *FMUstate points to a previously returned FMUstate that has not been modified
+since. In particular, fmi2FreeFMUstate had not been called with this FMUstate as an
+argument. [Function fmi2GetFMUstate typically reuses the memory of this FMUstate in this
+case and returns the same pointer to it, but with the actual FMUstate .]
+*/
+func GetFMUState(id FMUID) ([]byte, Status) {
+	const expected = ModelStateInstantiated | ModelStateInitializationMode |
+		ModelStateEventMode | ModelStateContinuousTimeMode |
+		ModelStateStepComplete | ModelStateStepFailed | ModelStateStepCanceled |
+		ModelStateTerminated | ModelStateError
+	fmu, ok := allowedState(id, "GetFMUState", expected)
+	if !ok {
+		return nil, StatusError
+	}
+
+	se, err := fmu.StateEncoder()
+	if err != nil {
+		fmu.logger.Error(err)
+		return nil, StatusError
+	}
+
+	bs, err := se.Encode()
+	if err != nil {
+		fmu.logger.Error(err)
+		return nil, StatusError
+	}
+
+	return bs, StatusOK
 }
 
 //export fmi2SetFMUstate
