@@ -471,7 +471,7 @@ func fmi2GetReal(c C.fmi2Component, vr C.valueReferences_t, nvr C.size_t, value 
 	var rs []C.fmi2Real
 	carrayToSlice(unsafe.Pointer(value), unsafe.Pointer(&rs), int(nvr))
 	fs, s := GetReal(FMUID(c), vs)
-	if s == StatusOK {
+	if s != StatusOK {
 		return C.fmi2Status(s)
 	}
 	copyRealArray(fs, rs)
