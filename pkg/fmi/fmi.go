@@ -10,7 +10,6 @@ package fmi
 // typedef const fmi2Integer* fmi2Integers_t;
 // typedef const fmi2Boolean* fmi2Booleans_t;
 // typedef const fmi2String* fmi2Strings_t;
-// typedef const fmi2Byte* serializedState_t;
 // typedef const fmi2StatusKind fmi2StatusKind_t;
 import "C"
 import (
@@ -752,81 +751,6 @@ func SetString(id FMUID, vr ValueReference, ss []string) Status {
 	return StatusOK
 }
 
-//export fmi2GetFMUstate
-func fmi2GetFMUstate(c C.fmi2Component, FMUstate *C.fmi2FMUstate) C.fmi2Status {
-	bs, s := GetFMUState(FMUID(c))
-	if s != StatusOK {
-		return C.fmi2Status(s)
-	}
-
-	p := C.fmi2FMUstate(C.CBytes(bs))
-	FMUstate = &p
-	return C.fmi2Status(s)
-}
-
-/*
-GetFMUstate makes a copy of the internal FMU state and returns a byte array.
-(FMUstate). If on entry *FMUstate == NULL, a new allocation is required. If *FMUstate !=
-NULL , then *FMUstate points to a previously returned FMUstate that has not been modified
-since. In particular, fmi2FreeFMUstate had not been called with this FMUstate as an
-argument. [Function fmi2GetFMUstate typically reuses the memory of this FMUstate in this
-case and returns the same pointer to it, but with the actual FMUstate .]
-*/
-func GetFMUState(id FMUID) ([]byte, Status) {
-	const expected = ModelStateInstantiated | ModelStateInitializationMode |
-		ModelStateEventMode | ModelStateContinuousTimeMode |
-		ModelStateStepComplete | ModelStateStepFailed | ModelStateStepCanceled |
-		ModelStateTerminated | ModelStateError
-	fmu, ok := allowedState(id, "GetFMUState", expected)
-	if !ok {
-		return nil, StatusError
-	}
-
-	se, err := fmu.StateEncoder()
-	if err != nil {
-		fmu.logger.Error(err)
-		return nil, StatusError
-	}
-
-	bs, err := se.Encode()
-	if err != nil {
-		fmu.logger.Error(err)
-		return nil, StatusError
-	}
-
-	return bs, StatusOK
-}
-
-//export fmi2SetFMUstate
-func fmi2SetFMUstate(c C.fmi2Component, FMUState C.fmi2FMUstate) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
-}
-
-//export fmi2FreeFMUstate
-func fmi2FreeFMUstate(c C.fmi2Component, FMUState *C.fmi2FMUstate) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
-}
-
-//export fmi2SerializedFMUstateSize
-func fmi2SerializedFMUstateSize(c C.fmi2Component, FMUState C.fmi2FMUstate, size *C.size_t) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
-}
-
-//export fmi2SerializeFMUstate
-func fmi2SerializeFMUstate(c C.fmi2Component, FMUstate C.fmi2FMUstate, serializedState *C.fmi2Byte, size C.size_t) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
-}
-
-//export fmi2DeSerializeFMUstate
-func fmi2DeSerializeFMUstate(c C.fmi2Component, serializedState C.serializedState_t, size C.size_t, FMUstate *C.fmi2FMUstate) C.fmi2Status {
-	// TODO: implement
-	return C.fmi2OK
-}
-
 //export fmi2GetDirectionalDerivative
 func fmi2GetDirectionalDerivative(c C.fmi2Component, vUnknown_ref C.valueReferences_t, nUnknown C.size_t,
 	vKnown_ref C.valueReferences_t, nKnown C.size_t,
@@ -1069,6 +993,14 @@ func allowedSetValue(id FMUID, name string) (*FMU, bool) {
 	const expected = ModelStateInstantiated | ModelStateInitializationMode |
 		ModelStateEventMode | ModelStateContinuousTimeMode |
 		ModelStateStepComplete
+	return allowedState(id, name, expected)
+}
+
+func allowedSerialize(id FMUID, name string) (*FMU, bool) {
+	const expected = ModelStateInstantiated | ModelStateInitializationMode |
+		ModelStateEventMode | ModelStateContinuousTimeMode |
+		ModelStateStepComplete | ModelStateStepFailed | ModelStateStepCanceled |
+		ModelStateTerminated | ModelStateError
 	return allowedState(id, name, expected)
 }
 
