@@ -3,7 +3,6 @@ package fmi
 // #include <stdlib.h>
 // #include "./c/fmi2Functions.h"
 // #include "bridge.h"
-// typedef const fmi2Byte* serializedState_t;
 import "C"
 
 import (
@@ -112,4 +111,12 @@ func fmi2SerializeFMUstate(c C.fmi2Component, FMUstate C.fmi2FMUstate, serialize
 func fmi2DeSerializeFMUstate(c C.fmi2Component, serializedState C.serializedState_t, size C.size_t, FMUstate *C.fmi2FMUstate) C.fmi2Status {
 	// TODO: implement
 	return C.fmi2OK
+}
+
+func allowedSerialize(id FMUID, name string) (*FMU, bool) {
+	const expected = ModelStateInstantiated | ModelStateInitializationMode |
+		ModelStateEventMode | ModelStateContinuousTimeMode |
+		ModelStateStepComplete | ModelStateStepFailed | ModelStateStepCanceled |
+		ModelStateTerminated | ModelStateError
+	return allowedState(id, name, expected)
 }
