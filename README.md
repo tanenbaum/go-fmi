@@ -10,3 +10,11 @@ A copy of the FMI documentation, model description schema and C headers are in `
 
 As this will generate a shared object file the `FMI2_FUNCTION_PREFIX` is not set.
 A tool will dynamically load this library and manually export function symbols.
+
+## Integration Tests
+
+Integration tests use the Python 3.x [fmpy](https://github.com/CATIA-Systems/FMPy) library.
+
+Install these dependencies before validating the FMU.
+
+Run `make integration-test` to execute the integration tests.

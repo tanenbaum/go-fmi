@@ -23,7 +23,10 @@ build-examples: $(EXAMPLES_SO)
 .PHONY: example-fmus
 example-fmus: $(EXAMPLES_FMU)
 
-
 .PHONY: test
 test:
 	go test -tags=none -race -cover ./...
+
+.PHONY: integration-test
+integration-test:
+	python -m unittest -v -f test/integration_test.py
