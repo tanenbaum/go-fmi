@@ -4,6 +4,12 @@ Golang wrapper for building FMI compatible shared libraries in Go.
 
 WIP - not ready for external presentation yet.
 
+## Platforms
+
+The steps to generate the FMU zips in the Makefile are designed specifically for Linux amd64 shared libraries.
+
+In theory, it should be a simple to modify this and create DLLs using Go, targetting Windows amd64.
+
 ## FMI Implementation
 
 A copy of the FMI documentation, model description schema and C headers are in `./third_party/fmi`.
