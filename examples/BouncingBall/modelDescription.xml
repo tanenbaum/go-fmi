@@ -9,16 +9,16 @@
   <ModelExchange
     modelIdentifier="BouncingBall"
     canNotUseMemoryManagementFunctions="true"
-    canGetAndSetFMUstate="false"
-    canSerializeFMUstate="false">
+    canGetAndSetFMUstate="true"
+    canSerializeFMUstate="true">
   </ModelExchange>
 
   <CoSimulation
     modelIdentifier="BouncingBall"
     canHandleVariableCommunicationStepSize="true"
     canNotUseMemoryManagementFunctions="true"
-    canGetAndSetFMUstate="false"
-    canSerializeFMUstate="false">
+    canGetAndSetFMUstate="true"
+    canSerializeFMUstate="true">
   </CoSimulation>
 
   <UnitDefinitions>

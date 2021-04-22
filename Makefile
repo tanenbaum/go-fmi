@@ -28,5 +28,6 @@ test:
 	go test -tags=none -race -cover ./...
 
 .PHONY: integration-test
+integration-test: export TEST_FMU = ./out/fmus/BouncingBall.fmu
 integration-test:
 	python -m unittest -v -f test/integration_test.py

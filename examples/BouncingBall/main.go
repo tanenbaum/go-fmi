@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"math"
@@ -65,10 +67,10 @@ type bouncingBall struct {
 }
 
 type data struct {
-	h float64
-	v float64
-	g float64
-	e float64
+	H float64
+	V float64
+	G float64
+	E float64
 }
 
 func initialState() *data {
@@ -99,6 +101,25 @@ func (b bouncingBall) Terminate() error {
 
 func (b *bouncingBall) Reset() error {
 	b.data = initialState()
+	return nil
+}
+
+func (b *bouncingBall) Encode() ([]byte, error) {
+	bs := &bytes.Buffer{}
+	enc := gob.NewEncoder(bs)
+	if err := enc.Encode(b.data); err != nil {
+		return nil, err
+	}
+	return bs.Bytes(), nil
+}
+
+func (b *bouncingBall) Decode(rs []byte) error {
+	dec := gob.NewDecoder(bytes.NewBuffer(rs))
+	d := &data{}
+	if err := dec.Decode(d); err != nil {
+		return err
+	}
+	b.data = d
 	return nil
 }
 
@@ -173,15 +194,15 @@ func (d *data) GetReal(vrs fmi.ValueReference) ([]float64, error) {
 	for i, vr := range vrs {
 		switch vr {
 		case vr_h:
-			fs[i] = d.h
+			fs[i] = d.H
 		case vr_der_h:
 		case vr_v:
-			fs[i] = d.v
+			fs[i] = d.V
 		case vr_der_v:
 		case vr_g:
-			fs[i] = d.g
+			fs[i] = d.G
 		case vr_e:
-			fs[i] = d.e
+			fs[i] = d.E
 		case vr_v_min:
 			fs[i] = v_min
 		default:
@@ -207,13 +228,13 @@ func (d *data) SetReal(vrs fmi.ValueReference, fs []float64) error {
 	for i, vr := range vrs {
 		switch vr {
 		case vr_h:
-			d.h = fs[i]
+			d.H = fs[i]
 		case vr_v:
-			d.v = fs[i]
+			d.V = fs[i]
 		case vr_g:
-			d.g = fs[i]
+			d.G = fs[i]
 		case vr_e:
-			d.e = fs[i]
+			d.E = fs[i]
 		case vr_v_min:
 			return errors.New("Variable v_min is constant and cannot be set.")
 		default:
@@ -236,36 +257,36 @@ func (d *data) SetString(fmi.ValueReference, []string) error {
 }
 
 func (d *data) eventUpdate() {
-	if d.h <= 0 && d.v < 0 {
-		d.h = 0
-		d.v = -d.v * d.e
+	if d.H <= 0 && d.V < 0 {
+		d.H = 0
+		d.V = -d.V * d.E
 
-		if d.v < v_min {
+		if d.V < v_min {
 			// stop bouncing
-			d.v = 0
-			d.g = 0
+			d.V = 0
+			d.G = 0
 		}
 	}
 }
 
 func (d *data) setContinuousStates(x ...float64) {
-	d.h = x[0]
-	d.v = x[1]
+	d.H = x[0]
+	d.V = x[1]
 }
 
 func (d *data) getContinuousStates() []float64 {
-	return []float64{d.h, d.v}
+	return []float64{d.H, d.V}
 }
 
 func (d *data) getDerivatives() []float64 {
-	return []float64{d.v, d.g}
+	return []float64{d.V, d.G}
 }
 
 func (d *data) getEventIndicators() []float64 {
-	if d.h == 0 && d.v == 0 {
+	if d.H == 0 && d.V == 0 {
 		return []float64{1}
 	} else {
-		return []float64{d.h}
+		return []float64{d.H}
 	}
 }
 

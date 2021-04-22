@@ -55,3 +55,45 @@ func TestGetFMUState(t *testing.T) {
 		})
 	}
 }
+
+func TestSetFMUState(t *testing.T) {
+	type args struct {
+		id fmi.FMUID
+		bs []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want fmi.Status
+	}{
+		{
+			"Model state is invalid",
+			args{
+				id: instantiateDefault(fmi.ModelStateStartAndEnd),
+			},
+			fmi.StatusError,
+		},
+		{
+			"State decoder error is handled",
+			args{
+				id: instantiateInstanceErrors(),
+			},
+			fmi.StatusError,
+		},
+		{
+			"Decode is called successfully",
+			args{
+				id: instantiateDefault(),
+				bs: []byte("foo"),
+			},
+			fmi.StatusOK,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := fmi.SetFMUState(tt.args.id, tt.args.bs); got != tt.want {
+				t.Errorf("SetFMUState() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

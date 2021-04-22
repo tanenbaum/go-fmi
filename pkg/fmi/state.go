@@ -26,8 +26,8 @@ func fmi2GetFMUstate(c C.fmi2Component, FMUstate *C.fmi2FMUstate) C.fmi2Status {
 		cs[i] = C.char(b)
 	}
 
-	p := C.fmi2FMUstate(unsafe.Pointer(ms))
-	FMUstate = &p
+	p := C.fmi2FMUstate(ms)
+	*FMUstate = p
 	return C.fmi2Status(s)
 }
 
@@ -62,7 +62,15 @@ func GetFMUState(id FMUID) ([]byte, Status) {
 
 //export fmi2SetFMUstate
 func fmi2SetFMUstate(c C.fmi2Component, FMUState C.fmi2FMUstate) C.fmi2Status {
-	return C.fmi2OK
+	ms := (*C.ModelState)(FMUState)
+	var cs []C.char
+	carrayToSlice(unsafe.Pointer(&ms.data[0]), unsafe.Pointer(&cs), int(ms.size))
+	bs := make([]byte, int(ms.size))
+	for i, c := range cs {
+		bs[i] = byte(c)
+	}
+
+	return C.fmi2Status(SetFMUState(FMUID(c), bs))
 }
 
 /*
