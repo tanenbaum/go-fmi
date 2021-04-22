@@ -59,6 +59,33 @@ class VerifyFMU(unittest.TestCase):
         self._fmu_cs.setFMUstate(state)
         self.assertEqual(v1, self._fmu_cs.getReal([var.valueReference])[0])
         self._fmu_cs.freeFMUstate(state)
+
+    def test_state_serialize_deserialize(self):
+        # find an FMU with real inputs, get initial state, mutate real value, ser/derserialize state and restore state
+        self._skipIfNotCoSim()
+        if not self._model_description.coSimulation.canSerializeFMUstate:
+            self.skipTest('Cannot serialize FMU state')
+        setReals = list(filter(lambda v: v.type == 'Real' and v.variability != 'constant' and v.initial == 'exact',
+            self._model_description.modelVariables))
+        if not setReals:
+            self.skipTest('FMU has no settable real variables')
+        var = setReals[0]
+        self._fmu_cs.setupExperiment(tolerance=self._relative_tolerance, startTime=self._start_time)
+        self._fmu_cs.enterInitializationMode()
+        v1 = self._fmu_cs.getReal([var.valueReference])[0]
+        v2 = v1 + 1.0
+        # save initial state
+        state = self._fmu_cs.getFMUstate()
+        self._fmu_cs.setReal([var.valueReference], [v2])
+        self.assertEqual(v2, self._fmu_cs.getReal([var.valueReference])[0])
+        # serialize and deserialize state
+        ser = self._fmu_cs.serializeFMUstate(state)
+        state = self._fmu_cs.deSerializeFMUstate(ser)
+        # restore state and verify original value
+        self._fmu_cs.setFMUstate(state)
+        self.assertEqual(v1, self._fmu_cs.getReal([var.valueReference])[0])
+        self._fmu_cs.freeFMUstate(state)
+
     
     def _skipIfNotCoSim(self):
         if self._fmu_cs is None:
