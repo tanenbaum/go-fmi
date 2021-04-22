@@ -58,6 +58,7 @@ class VerifyFMU(unittest.TestCase):
         # restore original state and check
         self._fmu_cs.setFMUstate(state)
         self.assertEqual(v1, self._fmu_cs.getReal([var.valueReference])[0])
+        self._fmu_cs.freeFMUstate(state)
     
     def _skipIfNotCoSim(self):
         if self._fmu_cs is None:

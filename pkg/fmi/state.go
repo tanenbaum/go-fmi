@@ -99,7 +99,11 @@ func SetFMUState(id FMUID, bs []byte) Status {
 
 //export fmi2FreeFMUstate
 func fmi2FreeFMUstate(c C.fmi2Component, FMUState *C.fmi2FMUstate) C.fmi2Status {
-	// TODO: implement
+	ms := (*C.ModelState)(*FMUState)
+	if ms == nil {
+		return C.fmi2OK
+	}
+	C.free(unsafe.Pointer(ms))
 	return C.fmi2OK
 }
 
