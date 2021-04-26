@@ -7,29 +7,15 @@ import (
 )
 
 func TestModelDescription_MarshallIndent(t *testing.T) {
-	type fields struct {
-		modelDescriptionStatic  modelDescriptionStatic
-		Name                    string
-		GUID                    string
-		Description             string
-		Author                  string
-		ModelVersion            string
-		Copyright               string
-		License                 string
-		GenerationTool          string
-		GenerationDateAndTime   *time.Time
-		NumberOfEventIndicators uint
-		DefaultExperiment       *Experiment
-	}
 	tests := []struct {
-		name    string
-		fields  fields
-		want    []byte
-		wantErr bool
+		name             string
+		modelDescription ModelDescription
+		want             []byte
+		wantErr          bool
 	}{
 		{
 			"Model description is generated with all fields set",
-			fields{
+			ModelDescription{
 				modelDescriptionStatic: modelDescriptionStatic{
 					FMIVersion: "2.0",
 				},
@@ -49,16 +35,29 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 					Tolerance: 0.1,
 					StepSize:  1e-3,
 				},
+				VendorAnnotations: &struct {
+					Tool []ToolAnnotation `xml:"Tool,omitempty"`
+				}{
+					[]ToolAnnotation{
+						{
+							Name:     "Foo",
+							InnerXML: "<Bar>Baz</Bar>",
+						},
+					},
+				},
 			},
 			[]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <fmiModelDescription fmiVersion="2.0" modelName="name" guid="guid-guid" description="Thing here" author="Bob Smith" version="v0.0.1" copyright="Blah" license="MIT" generationTool="Golang" generationDateAndTime="0001-01-01T00:00:00Z" numberOfEventIndicators="2">
     <DefaultExperiment startTime="1" stopTime="2" tolerance="0.1" stepSize="0.001"></DefaultExperiment>
+    <VendorAnnotations>
+        <Tool name="Foo"><Bar>Baz</Bar></Tool>
+    </VendorAnnotations>
 </fmiModelDescription>`),
 			false,
 		},
 		{
 			"Model description is generated with optional fields omitted",
-			fields{
+			ModelDescription{
 				modelDescriptionStatic: modelDescriptionStatic{
 					FMIVersion: "2.0",
 				},
@@ -72,20 +71,7 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := ModelDescription{
-				modelDescriptionStatic:  tt.fields.modelDescriptionStatic,
-				Name:                    tt.fields.Name,
-				GUID:                    tt.fields.GUID,
-				Description:             tt.fields.Description,
-				Author:                  tt.fields.Author,
-				ModelVersion:            tt.fields.ModelVersion,
-				Copyright:               tt.fields.Copyright,
-				License:                 tt.fields.License,
-				GenerationTool:          tt.fields.GenerationTool,
-				GenerationDateAndTime:   tt.fields.GenerationDateAndTime,
-				NumberOfEventIndicators: tt.fields.NumberOfEventIndicators,
-				DefaultExperiment:       tt.fields.DefaultExperiment,
-			}
+			m := tt.modelDescription
 			got, err := m.MarshallIndent()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ModelDescription.MarshallIndent() error = %v, wantErr %v", err, tt.wantErr)
