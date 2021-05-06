@@ -1,8 +1,12 @@
 # go-fmi
 
+*WIP - not quite ready for use yet. I'll tag an initial release and update the README/docs when this is stable.*
+
 Golang wrapper for building FMI compatible shared libraries in Go.
 
-WIP - not ready for external presentation yet.
+Initially supporting FMI 2.0. If warranted, I'd be happy to add FMI 1.0 compatibility too.
+
+Will look at FMI 3.0 once it has stabilised.
 
 ## Platforms
 
