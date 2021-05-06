@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 
-	"gitlab.com/edgetic/simulation/go-fmi/pkg/fmi"
+	"github.com/tanenbaum/go-fmi/pkg/fmi"
 )
 
 const (

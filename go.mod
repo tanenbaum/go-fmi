@@ -1,4 +1,4 @@
-module gitlab.com/edgetic/simulation/go-fmi
+module github.com/tanenbaum/go-fmi
 
 go 1.15
 

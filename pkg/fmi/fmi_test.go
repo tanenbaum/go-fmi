@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"gitlab.com/edgetic/simulation/go-fmi/pkg/fmi"
+	"github.com/tanenbaum/go-fmi/pkg/fmi"
 )
 
 type mockModel struct {
