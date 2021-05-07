@@ -666,8 +666,8 @@ func allowedState(id FMUID, name string, expected ModelState) (*FMU, bool) {
 }
 
 func logError(c C.fmi2Component, err error) C.fmi2Status {
-	_, fmu, err := getFMU(c)
-	if err != nil {
+	_, fmu, e := getFMU(c)
+	if e != nil {
 		return C.fmi2Error
 	}
 

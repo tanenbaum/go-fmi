@@ -154,17 +154,17 @@ func noopLogger(status fmi.Status, category, message string) {}
 // model setup for testing
 func init() {
 	// default model
-	fmi.RegisterModel(&mockModel{
+	_ = fmi.RegisterModel(&mockModel{
 		guid:     "GUID",
 		instance: &mockInstance{},
 	})
 	// model methods return errors
-	fmi.RegisterModel(&mockModel{
+	_ = fmi.RegisterModel(&mockModel{
 		guid: "ModelErrors",
 		err:  true,
 	})
 	// model instances return errors
-	fmi.RegisterModel(&mockModel{
+	_ = fmi.RegisterModel(&mockModel{
 		guid: "InstanceErrors",
 		instance: &mockInstance{
 			err: true,
@@ -188,12 +188,6 @@ func instantiateState(id fmi.FMUID, state ...fmi.ModelState) fmi.FMUID {
 		mask |= s
 	}
 	fmu.State = mask
-	return id
-}
-
-func instantiateModelErrors(state ...fmi.ModelState) fmi.FMUID {
-	id := fmi.FMUID(fmi.Instantiate("name", fmi.FMUTypeCoSimulation, "ModelErrors", "", false, noopLogger))
-	instantiateState(id, state...)
 	return id
 }
 

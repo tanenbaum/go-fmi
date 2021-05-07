@@ -31,3 +31,7 @@ test:
 integration-test: export TEST_FMU = ./out/fmus/BouncingBall.fmu
 integration-test:
 	python -m unittest -v -f test/integration_test.py
+
+.PHONY: lint
+lint:
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
