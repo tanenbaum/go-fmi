@@ -75,8 +75,22 @@ func (m *modelVariables) Decode(rs []byte) error {
 	return nil
 }
 
-func (m modelVariables) GetReal(ValueReference) ([]float64, error) {
-	return nil, nil
+func (m modelVariables) GetReal(vr ValueReference) (fs []float64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error getting real field for value references %v", vr)
+		}
+	}()
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting real fields for value references %v: %w", vr, err)
+	}
+	fvs := make([]float64, len(vs))
+	for i, v := range vs {
+		fvs[i] = v.Float()
+	}
+	fs = fvs
+	return
 }
 
 func (m modelVariables) GetInteger(ValueReference) ([]int32, error) {
@@ -91,20 +105,39 @@ func (m modelVariables) GetString(ValueReference) ([]string, error) {
 	return nil, nil
 }
 
-func (m *modelVariables) SetReal(ValueReference, []float64) error {
+func (m modelVariables) SetReal(ValueReference, []float64) error {
 	return nil
 }
 
-func (m *modelVariables) SetInteger(ValueReference, []int32) error {
+func (m modelVariables) SetInteger(ValueReference, []int32) error {
 	return nil
 }
 
-func (m *modelVariables) SetBoolean(ValueReference, []bool) error {
+func (m modelVariables) SetBoolean(ValueReference, []bool) error {
 	return nil
 }
 
-func (m *modelVariables) SetString(ValueReference, []string) error {
+func (m modelVariables) SetString(ValueReference, []string) error {
 	return nil
+}
+
+func (m modelVariables) fieldValues(vr ValueReference) (vs []reflect.Value, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Field index is out of bounds or model is not a struct")
+		}
+	}()
+	v := reflect.ValueOf(m.model)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	vs = make([]reflect.Value, v.NumField())
+	for i, vi := range vr {
+		// value references are 1-based indexes
+		vi = vi - 1
+		vs[i] = v.Field(int(vi))
+	}
+	return
 }
 
 func parseFieldVariable(field reflect.StructField) (sv ScalarVariable, err error) {

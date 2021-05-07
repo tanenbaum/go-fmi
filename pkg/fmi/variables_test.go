@@ -590,3 +590,110 @@ func Test_modelVariables_Decode(t *testing.T) {
 		})
 	}
 }
+
+func Test_modelVariables_GetReal(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantFs  []float64
+		wantErr bool
+	}{
+		{
+			"Multiple real values can be selected",
+			fields{
+				model: &struct {
+					A float64
+					B float64
+				}{
+					A: 1.1,
+					B: 2.2,
+				},
+			},
+			args{
+				ValueReference{1, 2},
+			},
+			[]float64{1.1, 2.2},
+			false,
+		},
+		{
+			"Error returned if model is not a struct",
+			fields{
+				model: 42,
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+		{
+			"Error returned if field value is not float64",
+			fields{
+				model: &struct {
+					A string
+				}{
+					A: "foo",
+				},
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+		{
+			"Value reference out of bounds returns error",
+			fields{
+				model: &struct {
+					A float64
+				}{
+					A: 1.1,
+				},
+			},
+			args{
+				ValueReference{2},
+			},
+			nil,
+			true,
+		},
+		{
+			"Value reference is 1-based index",
+			fields{
+				model: &struct {
+					A float64
+				}{
+					A: 1.1,
+				},
+			},
+			args{
+				ValueReference{0},
+			},
+			nil,
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			gotFs, err := m.GetReal(tt.args.vr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.GetReal() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotFs, tt.wantFs) {
+				t.Errorf("modelVariables.GetReal() = %v, want %v", gotFs, tt.wantFs)
+			}
+		})
+	}
+}
