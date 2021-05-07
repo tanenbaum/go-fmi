@@ -32,6 +32,14 @@ const (
 	VariableInitialCalculated
 )
 
+const (
+	VariableTypeReal VariableType = iota + 1
+	VariableTypeInteger
+	VariableTypeBoolean
+	VariableTypeString
+	VariableTypeEnumeration
+)
+
 var (
 	variableCausalityEnum   = [...]string{"local", "parameter", "calculatedParameter", "input", "output", "independent"}
 	variableVariabilityEnum = [...]string{"continuous", "constant", "fixed", "tunable", "discrete"}
@@ -131,9 +139,19 @@ type RealType struct {
 type IntegerType struct {
 	typeDefinition
 	// Min is min value, see RealType.Min definition.
-	Min int32 `xml:"min,attr,omitempty"`
+	Min *int32 `xml:"min,attr,omitempty"`
 	// Max is max value, see RealType.Max definition.
-	Max int32 `xml:"max,attr,omitempty"`
+	Max *int32 `xml:"max,attr,omitempty"`
+}
+
+// StringType is used for type definition and in variable types
+type StringType struct {
+	typeDefinition
+}
+
+// BooleanType is used for type definitions and in variable types
+type BooleanType struct {
+	typeDefinition
 }
 
 // EnumerationType is used to define an enumeration that is referenced from variable enumeration types
@@ -310,6 +328,45 @@ type ScalarVariable struct {
 
 	// Annotations contains custom tool annotations for this variable
 	Annotations []ToolAnnotation `xml:"annotations,omitempty"`
+
+	*scalarVariable
+}
+
+type scalarVariable struct {
+	variableType VariableType
+
+	// Real holds attributes for real (float64) variable
+	Real *RealVariable `xml:",omitempty"`
+	// Integer holds attributes for integer (int32) variable
+	Integer *IntegerVariable `xml:",omitempty"`
+	// Boolean holds attributes for boolean variable
+	Boolean *BooleanVariable `xml:",omitempty"`
+	// String holds attributes for string variable
+	String *StringVariable `xml:",omitempty"`
+}
+
+func (v *scalarVariable) updateVariableType() {
+	if v.variableType != 0 {
+		return
+	}
+
+	if v.Real != nil {
+		v.variableType = VariableTypeReal
+	} else if v.Integer != nil {
+		v.variableType = VariableTypeInteger
+	} else if v.Boolean != nil {
+		v.variableType = VariableTypeBoolean
+	} else if v.String != nil {
+		v.variableType = VariableTypeString
+	} else {
+		panic("Scalar variable type is empty")
+	}
+}
+
+func (v *scalarVariable) Type() VariableType {
+	v.updateVariableType()
+
+	return v.variableType
 }
 
 // VariableCausality enum for scalar variable
@@ -320,6 +377,9 @@ type VariableVariability uint
 
 // VariableInitial enum for scalar variable
 type VariableInitial uint
+
+// VariableType enum for type definitions and scalars variables
+type VariableType uint
 
 func (e VariableCausality) MarshalText() (text []byte, err error) {
 	return enumMarshalText(int(e), variableCausalityEnum[:])
@@ -358,6 +418,97 @@ func (e *VariableInitial) UnmarshalText(text []byte) error {
 	}
 	*e = VariableInitial(i)
 	return nil
+}
+
+type declaredType struct {
+	/*
+		DeclaredType is the name of type defined with TypeDefinitions / SimpleType.
+		The value defined in the corresponding TypeDefinition is used as
+		default. [For example, if “ min ” is present both in Real (of TypeDefinition ) and
+		in “Real” (of ScalarVariable ), then the “min” of ScalarVariable is actually
+		used.] For Real, Integer, Boolean, String, this attribute is optional. For
+		Enumeration it is required, because the Enumeration items are defined in
+		TypeDefinitions / SimpleType.
+	*/
+	DeclaredType string `xml:"declaredType,attr,omitempty"`
+}
+
+// RealVariable is used in scalar variables to define Reals
+type RealVariable struct {
+	RealType
+	declaredType
+
+	/*
+		Start is initial or guess value of variable. This value is also stored in the Go data structures.
+		[Therefore, calling fmi2SetXXX to set start values is only necessary, if a different
+		value as stored in the xml file is desired. WARNING: It is not recommended to
+		change the start values in the modelDescription.xml file of an FMU, as this
+		would break the consistency with the hard-coded start values in the C Code.
+		This could lead to unpredictable behaviour of the FMU in different importing tools,
+		as it is not mandatory to call fmi2SetXXX to set start values during initialization.
+		If initial = ′′exact′′ or ′′approx′′ or causality = ′′input′′ , a start value must be provided.
+		If initial = ′′calculated′′ or causality = ′′independent′′ , it is not allowed to provide a start value.
+		Variables with causality = "parameter" or "input" , as well as variables with variability = "constant" , must have a "start" value.
+
+		If causality = "parameter" , the start -value is the value of it.
+
+		If causality = "input" , the start value is used by the model as value of
+		the input, if the input is not set by the environment.
+
+		If variability = "constant" , the start value is the value of the constant.
+
+		If causality = "output" or "local" then the start value is either an
+		“initial” or a “guess” value, depending on the setting of attribute "initial" .
+	*/
+	Start *float64 `xml:"start,attr,omitempty"`
+
+	/*
+		Derivative, if present, this variable is the derivative of variable with ScalarVariable index
+		"derivative". [For example, if there are 10 ScalarVariables and derivative = 3 for
+		ScalarVariable 8, then ScalarVariable 8 is the derivative of ScalarVariable 3 with
+		respect to the independent variable (usually time). This information might be
+		especially used if an input or an output is the derivative of another input or output,
+		or to define the states.]
+		The state derivatives of an FMU are listed under element
+		<ModelStructure><Derivatives> . All ScalarVariables listed in this element
+		must have attribute derivative (in order that the continuous-time states are
+		uniquely defined).
+	*/
+	Derivative *float64 `xml:"derivative,attr,omitempty"`
+
+	/*
+		Reinit only for ModelExchange (if only CoSimulation FMU, this attribute must not be
+		present. If both ModelExchange and CoSimulation FMU, this attribute is ignored
+		for CoSimulation):
+		Can only be present for a continuous-time state.
+		If true, state can be reinitialized at an event by the FMU.
+		If false, state will not be reinitialized at an event by the FMU.
+	*/
+	Reinit bool `xml:"reinit,attr,omitempty"`
+}
+
+// IntegerVariable is used in scalar variables to define Integer
+type IntegerVariable struct {
+	IntegerType
+	declaredType
+	// Start is defined as per RealVariable.Start
+	Start *int32 `xml:"start,attr,omitempty"`
+}
+
+// BooleanVariable is used in scalar variables to define Boolean
+type BooleanVariable struct {
+	BooleanType
+	declaredType
+	// Start is defined as per RealVariable.Start
+	Start *bool `xml:"start,attr,omitempty"`
+}
+
+// StringVariable is used in scalar variables to define String
+type StringVariable struct {
+	StringType
+	declaredType
+	// Start is defined as per RealVariable.Start
+	Start string `xml:"start,attr,omitempty"`
 }
 
 func enumMarshalText(enum int, vs []string) (text []byte, err error) {
