@@ -1,0 +1,12 @@
+on: push
+jobs:
+  lint_and_build_examples:
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.15'
+    - name: lint and build examples
+      run: |
+        make lint
+        make build-examples
