@@ -697,3 +697,240 @@ func Test_modelVariables_GetReal(t *testing.T) {
 		})
 	}
 }
+
+func Test_modelVariables_GetInteger(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantIs  []int32
+		wantErr bool
+	}{
+		{
+			"Multiple integer values can be selected",
+			fields{
+				model: &struct {
+					A int32
+					B int32
+					C float64
+				}{
+					A: 1,
+					B: 2,
+					C: 1.2,
+				},
+			},
+			args{
+				ValueReference{1, 2},
+			},
+			[]int32{1, 2},
+			false,
+		},
+		{
+			"Error returned if model is not a struct",
+			fields{
+				model: 42,
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+		{
+			"Error returned if field value is not int32",
+			fields{
+				model: &struct {
+					A string
+				}{
+					A: "foo",
+				},
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			gotIs, err := m.GetInteger(tt.args.vr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.GetInteger() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotIs, tt.wantIs) {
+				t.Errorf("modelVariables.GetInteger() = %v, want %v", gotIs, tt.wantIs)
+			}
+		})
+	}
+}
+
+func Test_modelVariables_GetBoolean(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantBs  []bool
+		wantErr bool
+	}{
+		{
+			"Multiple boolean values can be selected",
+			fields{
+				model: &struct {
+					A string
+					B bool
+					C bool
+				}{
+					A: "1",
+					B: true,
+					C: false,
+				},
+			},
+			args{
+				ValueReference{2, 3},
+			},
+			[]bool{true, false},
+			false,
+		},
+		{
+			"Error returned if model is not a struct",
+			fields{
+				model: false,
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+		{
+			"Error returned if field value is not bool",
+			fields{
+				model: &struct {
+					A string
+				}{
+					A: "foo",
+				},
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			gotBs, err := m.GetBoolean(tt.args.vr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.GetBoolean() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotBs, tt.wantBs) {
+				t.Errorf("modelVariables.GetBoolean() = %v, want %v", gotBs, tt.wantBs)
+			}
+		})
+	}
+}
+
+func Test_modelVariables_GetString(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantSs  []string
+		wantErr bool
+	}{
+		{
+			"Multiple string values can be selected",
+			fields{
+				model: &struct {
+					A string
+					B bool
+					C string
+				}{
+					A: "foo",
+					B: true,
+					C: "bar",
+				},
+			},
+			args{
+				ValueReference{1, 3},
+			},
+			[]string{"foo", "bar"},
+			false,
+		},
+		{
+			"Error returned if model is not a struct",
+			fields{
+				model: 32,
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+		{
+			"Error returned if field value is not string",
+			fields{
+				model: &struct {
+					A bool
+				}{
+					A: false,
+				},
+			},
+			args{
+				ValueReference{1},
+			},
+			nil,
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			gotSs, err := m.GetString(tt.args.vr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.GetString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotSs, tt.wantSs) {
+				t.Errorf("modelVariables.GetString() = %v, want %v", gotSs, tt.wantSs)
+			}
+		})
+	}
+}

@@ -93,16 +93,57 @@ func (m modelVariables) GetReal(vr ValueReference) (fs []float64, err error) {
 	return
 }
 
-func (m modelVariables) GetInteger(ValueReference) ([]int32, error) {
-	return nil, nil
+func (m modelVariables) GetInteger(vr ValueReference) (is []int32, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error getting integer field for value references %v", vr)
+		}
+	}()
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting integer fields for value references %v: %w", vr, err)
+	}
+	ivs := make([]int32, len(vs))
+	for i, v := range vs {
+		ivs[i] = int32(v.Int())
+	}
+	is = ivs
+	return
 }
 
-func (m modelVariables) GetBoolean(ValueReference) ([]bool, error) {
-	return nil, nil
+func (m modelVariables) GetBoolean(vr ValueReference) (bs []bool, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error getting boolean field for value references %v", vr)
+		}
+	}()
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting boolean fields for value references %v: %w", vr, err)
+	}
+	bvs := make([]bool, len(vs))
+	for i, v := range vs {
+		bvs[i] = v.Bool()
+	}
+	bs = bvs
+	return
 }
 
-func (m modelVariables) GetString(ValueReference) ([]string, error) {
-	return nil, nil
+func (m modelVariables) GetString(vr ValueReference) ([]string, error) {
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting string fields for value references %v: %w", vr, err)
+	}
+	svs := make([]string, len(vs))
+	for i, v := range vs {
+		// reflect Value.String() is a special case
+		// we don't just want a string representation of any type
+		if v.Kind() != reflect.String {
+			return nil, fmt.Errorf("Field type at index %d is not a string", i)
+		}
+		svs[i] = v.String()
+	}
+	return svs, nil
 }
 
 func (m modelVariables) SetReal(ValueReference, []float64) error {
@@ -131,7 +172,7 @@ func (m modelVariables) fieldValues(vr ValueReference) (vs []reflect.Value, err 
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	vs = make([]reflect.Value, v.NumField())
+	vs = make([]reflect.Value, len(vr))
 	for i, vi := range vr {
 		// value references are 1-based indexes
 		vi = vi - 1
