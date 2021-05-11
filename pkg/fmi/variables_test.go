@@ -934,3 +934,430 @@ func Test_modelVariables_GetString(t *testing.T) {
 		})
 	}
 }
+
+func Test_modelVariables_SetReal(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+		fs []float64
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		wantErr   bool
+		wantModel interface{}
+	}{
+		{
+			"Setting multiple field reals should work",
+			fields{
+				model: &struct {
+					A float64
+					B float64
+				}{
+					A: 1.1,
+					B: 2.2,
+				},
+			},
+			args{
+				ValueReference{1, 2},
+				[]float64{-1.2, 5},
+			},
+			false,
+			&struct {
+				A float64
+				B float64
+			}{
+				A: -1.2,
+				B: 5,
+			},
+		},
+		{
+			"Variable reference must be within range",
+			fields{
+				model: &struct {
+					A float64
+				}{
+					A: 1.1,
+				},
+			},
+			args{
+				ValueReference{2},
+				[]float64{5},
+			},
+			true,
+			&struct {
+				A float64
+			}{
+				A: 1.1,
+			},
+		},
+		{
+			"setting of wrong type returns error",
+			fields{
+				model: &struct {
+					A bool
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]float64{1},
+			},
+			true,
+			&struct {
+				A bool
+			}{},
+		},
+		{
+			"Value references and reals should be same length",
+			fields{
+				model: &struct {
+					A bool
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]float64{1, 2},
+			},
+			true,
+			&struct {
+				A bool
+			}{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			if err := m.SetReal(tt.args.vr, tt.args.fs); (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.SetReal() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(m.model, tt.wantModel) {
+				t.Errorf("Want model %v got %v", m.model, tt.wantModel)
+			}
+		})
+	}
+}
+
+func Test_modelVariables_SetInteger(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+		is []int32
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		wantErr   bool
+		wantModel interface{}
+	}{
+		{
+			"Setting multiple field reals should work",
+			fields{
+				model: &struct {
+					A int32
+					B bool
+					C int32
+				}{
+					B: true,
+				},
+			},
+			args{
+				ValueReference{1, 3},
+				[]int32{1, 2},
+			},
+			false,
+			&struct {
+				A int32
+				B bool
+				C int32
+			}{
+				A: 1,
+				B: true,
+				C: 2,
+			},
+		},
+		{
+			"Variable reference must be within range",
+			fields{
+				model: &struct {
+					A int32
+				}{},
+			},
+			args{
+				ValueReference{2},
+				[]int32{5},
+			},
+			true,
+			&struct {
+				A int32
+			}{},
+		},
+		{
+			"setting of wrong type returns error",
+			fields{
+				model: &struct {
+					A bool
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]int32{1},
+			},
+			true,
+			&struct {
+				A bool
+			}{},
+		},
+		{
+			"Value references and integers should be same length",
+			fields{
+				model: &struct {
+					A bool
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]int32{1, 2},
+			},
+			true,
+			&struct {
+				A bool
+			}{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			if err := m.SetInteger(tt.args.vr, tt.args.is); (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.SetInteger() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(m.model, tt.wantModel) {
+				t.Errorf("Want model %v got %v", m.model, tt.wantModel)
+			}
+		})
+	}
+}
+
+func Test_modelVariables_SetBoolean(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+		bs []bool
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		wantErr   bool
+		wantModel interface{}
+	}{
+		{
+			"Setting multiple field booleans should work",
+			fields{
+				model: &struct {
+					A bool
+					B bool
+					C string
+				}{
+					C: "foo",
+				},
+			},
+			args{
+				ValueReference{1, 2},
+				[]bool{true, false},
+			},
+			false,
+			&struct {
+				A bool
+				B bool
+				C string
+			}{
+				A: true,
+				B: false,
+				C: "foo",
+			},
+		},
+		{
+			"Variable reference must be within range",
+			fields{
+				model: &struct {
+					A bool
+				}{},
+			},
+			args{
+				ValueReference{2},
+				[]bool{true},
+			},
+			true,
+			&struct {
+				A bool
+			}{},
+		},
+		{
+			"setting of wrong type returns error",
+			fields{
+				model: &struct {
+					A string
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]bool{true},
+			},
+			true,
+			&struct {
+				A string
+			}{},
+		},
+		{
+			"Value references and integers should be same length",
+			fields{
+				model: &struct {
+					A bool
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]bool{true, false},
+			},
+			true,
+			&struct {
+				A bool
+			}{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			if err := m.SetBoolean(tt.args.vr, tt.args.bs); (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.SetBoolean() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(m.model, tt.wantModel) {
+				t.Errorf("Want model %v got %v", m.model, tt.wantModel)
+			}
+		})
+	}
+}
+
+func Test_modelVariables_SetString(t *testing.T) {
+	type fields struct {
+		model   interface{}
+		scalars []ScalarVariable
+	}
+	type args struct {
+		vr ValueReference
+		ss []string
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		wantErr   bool
+		wantModel interface{}
+	}{
+		{
+			"Setting multiple field strings should work",
+			fields{
+				model: &struct {
+					A string
+					B string
+				}{
+					A: "bar",
+				},
+			},
+			args{
+				ValueReference{1, 2},
+				[]string{"foo", "bar"},
+			},
+			false,
+			&struct {
+				A string
+				B string
+			}{
+				A: "foo",
+				B: "bar",
+			},
+		},
+		{
+			"Variable reference must be within range",
+			fields{
+				model: &struct {
+					A string
+				}{},
+			},
+			args{
+				ValueReference{2},
+				[]string{"foo"},
+			},
+			true,
+			&struct {
+				A string
+			}{},
+		},
+		{
+			"setting of wrong type returns error",
+			fields{
+				model: &struct {
+					A float64
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]string{"foo"},
+			},
+			true,
+			&struct {
+				A float64
+			}{},
+		},
+		{
+			"Value references and integers should be same length",
+			fields{
+				model: &struct {
+					A string
+				}{},
+			},
+			args{
+				ValueReference{1},
+				[]string{"foo", "bar"},
+			},
+			true,
+			&struct {
+				A string
+			}{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := modelVariables{
+				model:   tt.fields.model,
+				scalars: tt.fields.scalars,
+			}
+			if err := m.SetString(tt.args.vr, tt.args.ss); (err != nil) != tt.wantErr {
+				t.Errorf("modelVariables.SetString() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(m.model, tt.wantModel) {
+				t.Errorf("Want model %v got %v", m.model, tt.wantModel)
+			}
+		})
+	}
+}

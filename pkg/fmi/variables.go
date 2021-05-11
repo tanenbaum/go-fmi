@@ -146,19 +146,79 @@ func (m modelVariables) GetString(vr ValueReference) ([]string, error) {
 	return svs, nil
 }
 
-func (m modelVariables) SetReal(ValueReference, []float64) error {
+func (m modelVariables) SetReal(vr ValueReference, fs []float64) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error setting real field for value references %v", vr)
+		}
+	}()
+	if len(vr) != len(fs) {
+		return fmt.Errorf("Length of value references %d must be same as input reals %d", len(vr), len(fs))
+	}
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return fmt.Errorf("Error setting real fields for value references %v: %w", vr, err)
+	}
+	for i, v := range vs {
+		v.SetFloat(fs[i])
+	}
 	return nil
 }
 
-func (m modelVariables) SetInteger(ValueReference, []int32) error {
+func (m modelVariables) SetInteger(vr ValueReference, is []int32) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error setting integer field for value references %v", vr)
+		}
+	}()
+	if len(vr) != len(is) {
+		return fmt.Errorf("Length of value references %d must be same as input integers %d", len(vr), len(is))
+	}
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return fmt.Errorf("Error setting integer fields for value references %v: %w", vr, err)
+	}
+	for i, v := range vs {
+		v.SetInt(int64(is[i]))
+	}
 	return nil
 }
 
-func (m modelVariables) SetBoolean(ValueReference, []bool) error {
+func (m modelVariables) SetBoolean(vr ValueReference, bs []bool) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error setting boolean field for value references %v", vr)
+		}
+	}()
+	if len(vr) != len(bs) {
+		return fmt.Errorf("Length of value references %d must be same as input booleans %d", len(vr), len(bs))
+	}
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return fmt.Errorf("Error setting boolean fields for value references %v: %w", vr, err)
+	}
+	for i, v := range vs {
+		v.SetBool(bs[i])
+	}
 	return nil
 }
 
-func (m modelVariables) SetString(ValueReference, []string) error {
+func (m modelVariables) SetString(vr ValueReference, ss []string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error setting string field for value references %v", vr)
+		}
+	}()
+	if len(vr) != len(ss) {
+		return fmt.Errorf("Length of value references %d must be same as input strings %d", len(vr), len(ss))
+	}
+	vs, err := m.fieldValues(vr)
+	if err != nil {
+		return fmt.Errorf("Error setting string fields for value references %v: %w", vr, err)
+	}
+	for i, v := range vs {
+		v.SetString(ss[i])
+	}
 	return nil
 }
 
