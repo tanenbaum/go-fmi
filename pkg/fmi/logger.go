@@ -16,6 +16,21 @@ const (
 	loggerCategoryAll = ^loggerCategory(0)
 )
 
+var (
+	loggerCategories = [...]loggerCategory{
+		loggerCategoryEvents, loggerCategoryWarning, loggerCategoryDiscard, loggerCategoryError, loggerCategoryFatal, loggerCategoryPending, loggerCategoryAll}
+
+	loggerCategoryNames = map[loggerCategory]string{
+		loggerCategoryEvents:  "logEvents",
+		loggerCategoryWarning: "logStatusWarning",
+		loggerCategoryDiscard: "logStatusDiscard",
+		loggerCategoryError:   "logStatusError",
+		loggerCategoryFatal:   "logStatusFatal",
+		loggerCategoryPending: "logStatusPending",
+		loggerCategoryAll:     "logAll",
+	}
+)
+
 // Logger abstracts the fmi2CallbackLogger callback function
 // Log messages are not sent if logging is disabled in fmi2Instantiate
 type Logger interface {
@@ -37,18 +52,8 @@ type Logger interface {
 
 type loggerCategory uint
 
-var loggerCategories = map[loggerCategory]string{
-	loggerCategoryEvents:  "logEvents",
-	loggerCategoryWarning: "logStatusWarning",
-	loggerCategoryDiscard: "logStatusDiscard",
-	loggerCategoryError:   "logStatusError",
-	loggerCategoryFatal:   "logStatusFatal",
-	loggerCategoryPending: "logStatusPending",
-	loggerCategoryAll:     "logAll",
-}
-
 func (l loggerCategory) String() string {
-	if s, ok := loggerCategories[l]; ok {
+	if s, ok := loggerCategoryNames[l]; ok {
 		return s
 	}
 	return "unknown"
@@ -118,7 +123,7 @@ func loggerCategoryFromString(category string) (loggerCategory, error) {
 		return 0, errors.New("Log category cannot be empty")
 	}
 
-	for c, s := range loggerCategories {
+	for c, s := range loggerCategoryNames {
 		if s == category {
 			return c, nil
 		}

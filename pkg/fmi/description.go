@@ -3,6 +3,7 @@ package fmi
 import (
 	"encoding/xml"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -49,35 +50,190 @@ var (
 // ModelDescription represents root node of a modelDescription.xml file
 type ModelDescription struct {
 	modelDescriptionStatic
-	Name                    string      `xml:"modelName,attr"`
-	GUID                    string      `xml:"guid,attr"`
-	Description             string      `xml:"description,attr,omitempty"`
-	Author                  string      `xml:"author,attr,omitempty"`
-	ModelVersion            string      `xml:"version,attr,omitempty"`
-	Copyright               string      `xml:"copyright,attr,omitempty"`
-	License                 string      `xml:"license,attr,omitempty"`
-	GenerationTool          string      `xml:"generationTool,attr,omitempty"`
-	GenerationDateAndTime   *time.Time  `xml:"generationDateAndTime,attr,omitempty"`
-	NumberOfEventIndicators uint        `xml:"numberOfEventIndicators,attr"`
-	DefaultExperiment       *Experiment `xml:"DefaultExperiment,omitempty"`
-	VendorAnnotations       *struct {
-		Tool []ToolAnnotation `xml:"Tool,omitempty"`
-	} `xml:"VendorAnnotations,omitempty"`
+	// Name is the name of the model as used in the modeling environment that generated the XML file.
+	Name string `xml:"modelName,attr"`
+
+	/*
+		GUID is a “Globally Unique IDentifier” that used to check that
+		the XML file is compatible with the C functions of the FMU.
+		Set this constant in the FMU library so that the XML and library can be verified.
+	*/
+	GUID string `xml:"guid,attr"`
+
+	// Description optional string with a brief description of the model.
+	Description string `xml:"description,attr,omitempty"`
+
+	// Author is optional string with the name and organization of the model author.
+	Author string `xml:"author,attr,omitempty"`
+
+	// Version is optional version of the model, for example “1.0”.
+	Version string `xml:"version,attr,omitempty"`
+
+	// Copyright is optional information on the intellectual property copyright for this FMU.
+	Copyright string `xml:"copyright,attr,omitempty"`
+
+	// License is optional information on the intellectual property licensing for this FMU.
+	License string `xml:"license,attr,omitempty"`
+
+	// GenerationTool is optional name of the tool that generated the XML file.
+	GenerationTool string `xml:"generationTool,attr,omitempty"`
+	/*
+		GenerationDateAndTime is optional date and time when the XML file was generated.
+		The format is a subset of “xs:dateTime” and should be: “YYYY-MM-DDThh:mm:ssZ".
+	*/
+	GenerationDateAndTime *time.Time `xml:"generationDateAndTime,attr,omitempty"`
+	/*
+		NumberOfEventIndicators is the (fixed) number of event indicators for an FMU based on FMI for Model Exchange.
+		For Co-Simulation, this value is ignored.
+	*/
+	NumberOfEventIndicators uint `xml:"numberOfEventIndicators,attr,omitempty"`
+
+	/*
+		UnitDefinitions is a global list of unit and display unit definitions [for example, to convert
+		display units into the units used in the model equations]. These
+		definitions are used in the XML element “ModelVariables”.
+	*/
+	UnitDefinitions []Unit `xml:"UnitDefinitions>Unit,omitempty"`
+
+	// TypeDefinitions to be shared by ModelVariables
+	TypeDefinitions []SimpleType `xml:"TypeDefinitions>SimpleType,omitempty"`
+
+	// DefaultExperiment is optional default experiment parameters.
+	DefaultExperiment *Experiment `xml:"DefaultExperiment,omitempty"`
+
+	// VendorAnnotations is optional data for vendor tools containing list of Tool elements
+	VendorAnnotations []ToolAnnotation `xml:"VendorAnnotations>Tool,omitempty"`
+
+	/*
+		ModelVariables consists of ordered set of "ScalarVariable" elements.
+		The first element has index = 1, the second index=2, etc. This ScalarVariable index is
+		used in element ModelStructure to uniquely and efficiently refer to ScalarVariable definitions.
+		A “ScalarVariable” represents a variable of primitive type, like a real or integer variable. For simplicity,
+		only scalar variables are supported in the schema file in this version and structured entities (like arrays
+		or records) have to be mapped to scalars.
+	*/
+	ModelVariables []ScalarVariable `xml:"ModelVariables>ScalarVariable"`
+
+	/*
+		ModelStructure defines the structure of the model. Especially, the ordered lists of
+		outputs, continuous-time states and initial unknowns (the unknowns
+		during Initialization Mode) are defined here.
+		Furthermore, the dependency of
+		the unknowns from the knowns can be optionally defined. [This
+		information can be, for example, used to compute efficiently a sparse
+		Jacobian for simulation, or to utilize the input/output dependency in
+		order to detect that in some cases there are actually no algebraic
+		loops when connecting FMUs together.]
+	*/
+	ModelStructure ModelStructure `xml:"ModelStructure"`
+}
+
+/*
+	Unit is defined by its name attribute such as “N.m” or “N*m” or “Nm”,
+	which must be unique with respect to all other defined elements of the UnitDefinitions list.
+	If a variable is associated with a Unit , then the value of the variable has to be
+	provided with the fmi2SetXXX functions and is returned by the fmi2GetXXX functions with respect to this Unit.
+*/
+type Unit struct {
+	// Name of unit element, e.g. N.m, Nm, %/s. Name must be unique with respect to all other elements of the UnitDefinitions list
+	Name string `xml:"name,attr"`
+	// BaseUnit is optional unit conversion
+	BaseUnit *BaseUnit `xml:"BaseUnit,omitempty"`
+	// DisplayUnits for Unit to display types
+	DisplayUnits []DisplayUnit `xml:"DisplayUnit,omitempty"`
+}
+
+// BaseUnit is used to convert Unit with factor and offset attributes
+type BaseUnit struct {
+	// KG exponent of SI base unit "kg"
+	KG *int `xml:"kg,attr,omitempty"`
+	// M exponent of SI base unit "m"
+	M *int `xml:"m,attr,omitempty"`
+	// S exponent of SI based unit "s"
+	S *int `xml:"s,attr,omitempty"`
+	// A exponent of SI based unit "A"
+	A *int `xml:"A,attr,omitempty"`
+	// K exponent of SI based unit "K"
+	K *int `xml:"K,attr,omitempty"`
+	// Mol exponent of SI based unit "mol"
+	Mol *int `xml:"mol,attr,omitempty"`
+	// CD exponent of SI based unit "cd"
+	CD *int `xml:"cd,attr,omitempty"`
+	// Rad exponent of SI based unit "rad"
+	Rad *int `xml:"rad,attr,omitempty"`
+	// Factor for base unit conversion
+	Factor *float64 `xml:"factor,attr,omitempty"`
+	// Offset for base unit conversion
+	Offset *float64 `xml:"offset,attr,omitempty"`
+}
+
+// DisplayUnit defines unit conversion for display purposes with factor and offset.
+// A value with respect to Unit is converted with respect to DisplayUnit by the equation: display_unit = factor*unit + offset.
+type DisplayUnit struct {
+	// Name of DisplayUnit element, e.g. if Unit name is "rad", DisplayUnit name might be "deg".
+	// Name must be unique with respect to other names in same DisplayUnit list.
+	Name string `xml:"name,attr"`
+	// Factor for display unit conversion
+	Factor *float64 `xml:"factor,attr,omitempty"`
+	// Offset for display unit conversion
+	Offset *float64 `xml:"offset,attr,omitempty"`
+}
+
+// SimpleType represents shared properties to be used by one or more ScalarVariables.
+// One of the elements Real, Integer, Boolean, String or Enumeration must be present.
+type SimpleType struct {
+	// Name of SimpleType, unique with respect to all other elements in this list.
+	// Name of SimpleType must be different to all "name"s of ScalarVariables.
+	Name string `xml:"name,attr"`
+	// Description of SimpleType.
+	Description string `xml:"description,attr,omitempty"`
+	// Real type
+	Real *RealType `xml:"Real,omitempty"`
+	// Integer type
+	Integer *IntegerType `xml:"Integer,omitempty"`
+	// Boolean type
+	Boolean *BooleanType `xml:"Boolean,omitempty"`
+	// String type
+	String *StringType `xml:"String,omitempty"`
+	// Enumeration type
+	Enumeration *EnumerationType `xml:"Enumeration,omitempty"`
 }
 
 type modelDescriptionStatic struct {
-	XMLName    xml.Name `xml:"fmiModelDescription"`
-	FMIVersion string   `xml:"fmiVersion,attr"`
+	XMLName xml.Name `xml:"fmiModelDescription"`
+	// FMIVersion is version for model exchange or co-simulation. Derived from C headers.
+	FMIVersion string `xml:"fmiVersion,attr"`
+	// VariableNamingConvention defines convention of variables. Set to "flat" in this library.
+	VariableNamingConvention string `xml:"variableNamingConvention,attr"`
+	// LogCategories are fixed log categories based on logger
+	LogCategories []logCategory `xml:"LogCategories>Category,omitempty"`
 }
 
-type typeDefinition struct {
+type logCategory struct {
+	// Name of log category, must be unique with respect to all other elements of LogCategories.
+	Name string `xml:"name,attr"`
+	// Description of log the category
+	Description string `xml:"description,attr,omitempty"`
+}
+
+func buildLogCategories() []logCategory {
+	cs := make([]logCategory, len(loggerCategories))
+	for i, l := range loggerCategories {
+		cs[i] = logCategory{
+			Name: l.String(),
+		}
+	}
+	return cs
+}
+
+type TypeDefinition struct {
 	// Quantity is the physical quantity of the variable, for example Angle or Energy.
 	Quantity string `xml:"quantity,attr,omitempty"`
 }
 
 // RealType is used for type definitions and in variable types
 type RealType struct {
-	typeDefinition
+	TypeDefinition
 
 	// Unit of the variable defined with UnitDefinitions.Unit.name that is used for the model equations.
 	Unit string `xml:"unit,attr,omitempty"`
@@ -137,7 +293,7 @@ type RealType struct {
 
 // IntegerType is used for type definitions and in variable types
 type IntegerType struct {
-	typeDefinition
+	TypeDefinition
 	// Min is min value, see RealType.Min definition.
 	Min *int32 `xml:"min,attr,omitempty"`
 	// Max is max value, see RealType.Max definition.
@@ -146,17 +302,17 @@ type IntegerType struct {
 
 // StringType is used for type definition and in variable types
 type StringType struct {
-	typeDefinition
+	TypeDefinition
 }
 
 // BooleanType is used for type definitions and in variable types
 type BooleanType struct {
-	typeDefinition
+	TypeDefinition
 }
 
 // EnumerationType is used to define an enumeration that is referenced from variable enumeration types
 type EnumerationType struct {
-	typeDefinition
+	TypeDefinition
 	/*
 		Item of an enumeration has a sequence of “name” and “value” pairs. The
 		values can be any integer number but must be unique within the same
@@ -182,16 +338,22 @@ type ToolAnnotation struct {
 
 // Experiment element for model description default experiment
 type Experiment struct {
-	StartTime float64 `xml:"startTime,attr,omitempty"`
-	StopTime  float64 `xml:"stopTime,attr,omitempty"`
-	Tolerance float64 `xml:"tolerance,attr,omitempty"`
-	StepSize  float64 `xml:"stepSize,attr,omitempty"`
+	// StartTime is optional start time
+	StartTime *float64 `xml:"startTime,attr,omitempty"`
+	// StopTime is optional stop time
+	StopTime *float64 `xml:"stopTime,attr,omitempty"`
+	// Tolerance is default tolerance
+	Tolerance *float64 `xml:"tolerance,attr,omitempty"`
+	// StepSize is default step size
+	StepSize *float64 `xml:"stepSize,attr,omitempty"`
 }
 
 func NewModelDescription() ModelDescription {
 	return ModelDescription{
 		modelDescriptionStatic: modelDescriptionStatic{
-			FMIVersion: GetVersion(),
+			FMIVersion:               GetVersion(),
+			VariableNamingConvention: "flat",
+			LogCategories:            buildLogCategories(),
 		},
 	}
 }
@@ -327,12 +489,12 @@ type ScalarVariable struct {
 	CanHandleMultipleSetPerTimeInstant bool `xml:"canHandleMultipleSetPerTimeInstant,attr,omitempty"`
 
 	// Annotations contains custom tool annotations for this variable
-	Annotations []ToolAnnotation `xml:"annotations,omitempty"`
+	Annotations []ToolAnnotation `xml:"Annotations>Tool,omitempty"`
 
-	*scalarVariable
+	*ScalarVariableType
 }
 
-type scalarVariable struct {
+type ScalarVariableType struct {
 	variableType VariableType
 
 	// Real holds attributes for real (float64) variable
@@ -345,7 +507,7 @@ type scalarVariable struct {
 	String *StringVariable `xml:",omitempty"`
 }
 
-func (v *scalarVariable) updateVariableType() {
+func (v *ScalarVariableType) updateVariableType() {
 	if v.variableType != 0 {
 		return
 	}
@@ -363,7 +525,7 @@ func (v *scalarVariable) updateVariableType() {
 	}
 }
 
-func (v *scalarVariable) Type() VariableType {
+func (v *ScalarVariableType) Type() VariableType {
 	v.updateVariableType()
 
 	return v.variableType
@@ -420,7 +582,7 @@ func (e *VariableInitial) UnmarshalText(text []byte) error {
 	return nil
 }
 
-type declaredType struct {
+type DeclaredType struct {
 	/*
 		DeclaredType is the name of type defined with TypeDefinitions / SimpleType.
 		The value defined in the corresponding TypeDefinition is used as
@@ -436,7 +598,7 @@ type declaredType struct {
 // RealVariable is used in scalar variables to define Reals
 type RealVariable struct {
 	RealType
-	declaredType
+	DeclaredType
 
 	/*
 		Start is initial or guess value of variable. This value is also stored in the Go data structures.
@@ -490,7 +652,7 @@ type RealVariable struct {
 // IntegerVariable is used in scalar variables to define Integer
 type IntegerVariable struct {
 	IntegerType
-	declaredType
+	DeclaredType
 	// Start is defined as per RealVariable.Start
 	Start *int32 `xml:"start,attr,omitempty"`
 }
@@ -498,7 +660,7 @@ type IntegerVariable struct {
 // BooleanVariable is used in scalar variables to define Boolean
 type BooleanVariable struct {
 	BooleanType
-	declaredType
+	DeclaredType
 	// Start is defined as per RealVariable.Start
 	Start *bool `xml:"start,attr,omitempty"`
 }
@@ -506,9 +668,167 @@ type BooleanVariable struct {
 // StringVariable is used in scalar variables to define String
 type StringVariable struct {
 	StringType
-	declaredType
+	DeclaredType
 	// Start is defined as per RealVariable.Start
 	Start string `xml:"start,attr,omitempty"`
+}
+
+/*
+	ModelStructure is with respect to the underlying model equations, independently how these model equations are solved.
+	[For example, when exporting a model both in Model Exchange and Co-Simulation format; then the model structure is identical in both cases.
+	The Co-Simulation FMU has either an integrator included that solves the model equations, or the discretization formula of the integrator and the
+	model equations are solved together (“inline integration”). In both cases the model has the same
+	continuous-time states. In the second case the internal implementation is a discrete -time system, but
+	from the outside this is still a continuous-time model that is solved with an integration method.]
+
+	The required part defines an ordering of the outputs and of the (exposed) derivatives, and defines the
+	unknowns that are available during Initialization [Therefore, when linearizing an FMU, every tool will use
+	the same ordering for the outputs, states, and derivatives for the linearized model. The ordering of the
+	inputs should be performed in this case according to the ordering in ModelVariables.] A ModelExchange
+	FMU must expose all derivatives of its continuous-time states in element <Derivatives>.
+	A Co-Simulation FMU does not need to expose these state derivatives. [If a Co-Simulation FMU exposes its
+	state derivatives, they are usually not utilized for the co-simulation, but, for example, to linearize the FMU at a communication point.]
+
+	The optional part defines in which way derivatives and outputs depend on inputs, and continuous-time
+	states at the current super dense time instant (ModelExchange) or at the current Communication Point (CoSimulation).
+	[A simulation environment can utilize this information to improve the efficiency, for
+	example, when connecting FMUs together, or when computing the partial derivative of the derivatives
+	with respect to the states in the simulation engine.]
+*/
+type ModelStructure struct {
+	/*
+		Outputs is an ordered list of all outputs, in other words a list of ScalarVariable indices
+		where every corresponding ScalarVariable must have causality = "output"
+		(and every variable with causality=”output” must be listed here).
+		[Note that all output variables are listed here, especially discrete and
+		continuous outputs. The ordering of the variables in this list is defined by the
+		exporting tool. Usually, it is best to order according to the declaration order in the
+		source model, since then the <Outputs> list does not change if the declaration
+		order of outputs in the source model is not changed. This is, for example,
+		important for linearization, in order that the interpretation of the output vector
+		does not change for a re-exported FMU.]. Attribute dependencies defines the
+		dependencies of the outputs from the knowns at the current super dense time
+		instant in Event and in Continuous-Time Mode (ModelExchange) and at the
+		current Communication Point (CoSimulation).
+	*/
+	Outputs []Unknown `xml:"Outputs>Unknown,omitempty"`
+
+	/*
+		Derivatives is an ordered list of all state derivatives, in other words, a list of ScalarVariable
+		indices where every corresponding ScalarVariable must be a state
+		derivative. [Note that only continuous Real variables are listed here. If a state or
+		a derivative of a state shall not be exposed from the FMU, or if states are not
+		statically associated with a variable (due to dynamic state selection), then
+		dummy ScalarVariables have to be introduced.
+		The ordering of the variables in this list is defined by the
+		exporting tool. Usually, it is best to order according to the declaration order of the
+		states in the source model, since then the <Derivatives> list does not change if
+		the declaration order of states in the source model is not changed. This is, for
+		example, important for linearization, in order that the interpretation of the state
+		vector does not change for a re-exported FMU.]. The number of Unknown
+		elements in the Derivatives element uniquely define the number of continuous
+		time state variables, as required by the corresponding Model Exchange functions
+		(integer argument nx of fmi2GetContinuousStates, fmi2SetcontinuousStates, fmi2GetDerivatives, fmi2GetNominalsOfContinuousStates) that require it.
+		The corresponding continuous-time states are defined by attribute derivative of
+		the corresponding ScalarVariable state derivative element. [Note that higher
+		order derivatives must be mapped to first order derivatives but the mapping
+		definition can be preserved due to attribute derivative.
+
+		For Co-Simulation, element “Derivatives” is ignored if capability flag
+		providesDirectionalDerivative has a value of false, in other words, it
+		cannot be computed. [This is the default. If an FMU supports both
+		ModelExchange and CoSimulation, then the “Derivatives” element might be
+		present, since it is needed for ModelExchange. If the above flag is set to false for
+		the CoSimulation case, then the “Derivatives” element is ignored for
+		CoSimulation. If “inline integration” is used for a CoSimulation slave, then the
+		model still has continuous-time states and just a special solver is used (internally
+		the implementation results in a discrete-time system, but from the outside, it is
+		still a continuous-time system).]
+	*/
+	Derivatives []Unknown `xml:"Derivatives>Unknown,omitempty"`
+
+	/*
+		InitialUnknowns is ordered list of all exposed Unknowns in Initialization Mode. This list consists of
+		all variables with
+
+		(1) causality = "output" and ( initial="approx" or "calculated" ), and
+
+		(2) causality = "calculatedParameter" and
+
+		(3) all continuous-time states and all state derivatives (defined with element
+		<Derivatives> from <ModelStructure> ) with initial="approx" or
+		"calculated" [if a Co-Simulation FMU does not define the
+		<Derivatives> element, (3) cannot be present.].
+
+		The resulting list is not allowed to have duplicates (for example, if a state is also
+		an output, it is included only once in the list). The Unknowns in this list must be
+		ordered according to their ScalarVariable index (for example, if for two variables
+		A and B the ScalarVariable index of A is less than the index of B, then A must
+		appear before B in InitialUnknowns ).
+
+		Attribute dependencies defines the dependencies of the Unknowns from the
+		Knowns in Initialization Mode at the initial time.
+	*/
+	InitialUnknowns []Unknown `xml:"InitialUnknowns>Unknown,omitempty"`
+}
+
+/*
+	Unknown is dependency of scalar Unknown from Knowns in Continuous-Time and Event Mode (ModelExchange),
+	and at Communication Points (CoSimulation): Unknown=f(Known_1, Known_2, ...).
+	Knowns are "inputs", "continuous states" and "independent variable" (usually time).
+*/
+type Unknown struct {
+	// Index is ScalarVariable index of Unknown
+	Index uint `xml:"index,attr"`
+	/*
+		Dependencies attribute defining the dependencies of the unknown v unknown (directly or
+		indirectly via auxiliary variables) with respect to v known . If not present, it must be
+		assumed that the Unknown depends on all Knowns. If present as empty list, the
+		Unknown depends on none of the Knowns. Otherwise the Unknown depends on
+		the Knowns defined by the given ScalarVariable indices. The indices are ordered
+		according to magnitude, starting with the smallest index.
+	*/
+	Dependencies UintAttributeList `xml:"dependencies,attr,omitempty"`
+
+	/*
+		DependenciesKind is an attribute list of type of dependencies in "dependencies" attribute.
+		If not present, it must be assumed that the Unknown v unknown depends on the
+		Knowns v known without a particular structure. Otherwise, the corresponding
+		Known v known,i enters the equation as:
+
+		If "dependenciesKind" is present, "dependencies" must be present and must
+		have the same number of list elements
+
+		- dependent: no particular structure
+
+		Only for Real unknowns:
+
+		- constant: constant factor
+
+		Only for Real unknowns in event and continuous-time mode (model exchange) and at comms points (CoSimulation),
+		and not for InitialUnknowns for Initialization Mode:
+
+		- fixed: fixed factor
+
+		- tunable: tunable factor
+
+		- discrete: discrete factor
+	*/
+	DependenciesKind StringAttributeList `xml:"dependenciesKind,attr,omitempty"`
+}
+
+// UintAttributeList represents space delimited list of unsigned integers in an xml attribute
+type UintAttributeList []uint
+
+// StringAttributeList represents space delimited list of strings in an xml attribute
+type StringAttributeList []string
+
+func (l UintAttributeList) MarshalText() (text []byte, err error) {
+	return []byte(strings.Trim(fmt.Sprintf("%v", l), "[]")), nil
+}
+
+func (l StringAttributeList) MarshalText() (text []byte, err error) {
+	return []byte(strings.Trim(fmt.Sprintf("%v", l), "[]")), nil
 }
 
 func enumMarshalText(enum int, vs []string) (text []byte, err error) {

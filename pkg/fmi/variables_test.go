@@ -72,7 +72,7 @@ func TestNewModelVariables(t *testing.T) {
 				},
 				scalars: []ScalarVariable{
 					{
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeReal,
 							Real:         &RealVariable{},
 						},
@@ -80,7 +80,7 @@ func TestNewModelVariables(t *testing.T) {
 						ValueReference: 1,
 					},
 					{
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeInteger,
 							Integer:      &IntegerVariable{},
 						},
@@ -88,7 +88,7 @@ func TestNewModelVariables(t *testing.T) {
 						ValueReference: 2,
 					},
 					{
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeBoolean,
 							Boolean:      &BooleanVariable{},
 						},
@@ -96,7 +96,7 @@ func TestNewModelVariables(t *testing.T) {
 						ValueReference: 3,
 					},
 					{
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeString,
 							String:       &StringVariable{},
 						},
@@ -146,7 +146,7 @@ func TestNewModelVariables(t *testing.T) {
 				},
 				scalars: []ScalarVariable{
 					{
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeReal,
 							Real:         &RealVariable{},
 						},
@@ -210,14 +210,14 @@ func TestNewModelVariables(t *testing.T) {
 					{
 						Name:           "A",
 						ValueReference: 1,
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeReal,
 							Real: &RealVariable{
-								declaredType: declaredType{
+								DeclaredType: DeclaredType{
 									DeclaredType: "foo",
 								},
 								RealType: RealType{
-									typeDefinition: typeDefinition{
+									TypeDefinition: TypeDefinition{
 										Quantity: "angle",
 									},
 									Unit:             "kg",
@@ -288,10 +288,10 @@ func TestNewModelVariables(t *testing.T) {
 					{
 						Name:           "A",
 						ValueReference: 1,
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeInteger,
 							Integer: &IntegerVariable{
-								declaredType: declaredType{
+								DeclaredType: DeclaredType{
 									DeclaredType: "foo",
 								},
 								Start: func() *int32 {
@@ -299,7 +299,7 @@ func TestNewModelVariables(t *testing.T) {
 									return &i
 								}(),
 								IntegerType: IntegerType{
-									typeDefinition: typeDefinition{
+									TypeDefinition: TypeDefinition{
 										Quantity: "angle",
 									},
 									Min: func() *int32 {
@@ -353,14 +353,14 @@ func TestNewModelVariables(t *testing.T) {
 					{
 						Name:           "A",
 						ValueReference: 1,
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeString,
 							String: &StringVariable{
-								declaredType: declaredType{
+								DeclaredType: DeclaredType{
 									DeclaredType: "foo",
 								},
 								StringType: StringType{
-									typeDefinition: typeDefinition{
+									TypeDefinition: TypeDefinition{
 										Quantity: "bar",
 									},
 								},
@@ -387,10 +387,10 @@ func TestNewModelVariables(t *testing.T) {
 					{
 						Name:           "A",
 						ValueReference: 1,
-						scalarVariable: &scalarVariable{
+						ScalarVariableType: &ScalarVariableType{
 							variableType: VariableTypeBoolean,
 							Boolean: &BooleanVariable{
-								declaredType: declaredType{
+								DeclaredType: DeclaredType{
 									DeclaredType: "foo",
 								},
 								Start: func() *bool {
@@ -398,7 +398,7 @@ func TestNewModelVariables(t *testing.T) {
 									return &b
 								}(),
 								BooleanType: BooleanType{
-									typeDefinition: typeDefinition{
+									TypeDefinition: TypeDefinition{
 										Quantity: "bar",
 									},
 								},

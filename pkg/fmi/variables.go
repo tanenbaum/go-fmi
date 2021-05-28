@@ -281,7 +281,7 @@ func parseFieldVariable(field reflect.StructField) (sv ScalarVariable, err error
 		initial = &init
 	}
 
-	sv.scalarVariable = v
+	sv.ScalarVariableType = v
 	sv.Name = field.Name
 	sv.Description = tags.Get("description")
 	// Value references are a 1-based index
@@ -293,14 +293,14 @@ func parseFieldVariable(field reflect.StructField) (sv ScalarVariable, err error
 	return
 }
 
-func parseFieldType(field reflect.StructField) (*scalarVariable, error) {
+func parseFieldType(field reflect.StructField) (*ScalarVariableType, error) {
 	switch field.Type.Kind() {
 	case reflect.Float64:
 		r, err := parseRealTags(field)
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing Real tags for model variable %s: %w", field.Name, err)
 		}
-		return &scalarVariable{
+		return &ScalarVariableType{
 			variableType: VariableTypeReal,
 			Real:         r,
 		}, nil
@@ -309,12 +309,12 @@ func parseFieldType(field reflect.StructField) (*scalarVariable, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing Integer tags for model variable %s: %w", field.Name, err)
 		}
-		return &scalarVariable{
+		return &ScalarVariableType{
 			variableType: VariableTypeInteger,
 			Integer:      i,
 		}, nil
 	case reflect.String:
-		return &scalarVariable{
+		return &ScalarVariableType{
 			variableType: VariableTypeString,
 			String:       parseStringTags(field),
 		}, nil
@@ -323,7 +323,7 @@ func parseFieldType(field reflect.StructField) (*scalarVariable, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing Boolean tags for model variable %s: %w", field.Name, err)
 		}
-		return &scalarVariable{
+		return &ScalarVariableType{
 			variableType: VariableTypeBoolean,
 			Boolean:      b,
 		}, nil
@@ -376,9 +376,9 @@ func parseRealTags(field reflect.StructField) (*RealVariable, error) {
 			DisplayUnit:      tags.Get("displayunit"),
 			RelativeQuantity: relativeQuantity,
 			Unbounded:        unbounded,
-			typeDefinition:   parseTypeDefinitionTag(tags),
+			TypeDefinition:   parseTypeDefinitionTag(tags),
 		},
-		declaredType: parseDeclaredTypeTag(tags),
+		DeclaredType: parseDeclaredTypeTag(tags),
 		Start:        start,
 		Derivative:   derivative,
 		Reinit:       reinit,
@@ -401,9 +401,9 @@ func parseIntegerTags(field reflect.StructField) (*IntegerVariable, error) {
 	}
 
 	return &IntegerVariable{
-		declaredType: parseDeclaredTypeTag(tags),
+		DeclaredType: parseDeclaredTypeTag(tags),
 		IntegerType: IntegerType{
-			typeDefinition: parseTypeDefinitionTag(tags),
+			TypeDefinition: parseTypeDefinitionTag(tags),
 			Min:            min,
 			Max:            max,
 		},
@@ -415,9 +415,9 @@ func parseStringTags(field reflect.StructField) *StringVariable {
 	tags := field.Tag
 
 	return &StringVariable{
-		declaredType: parseDeclaredTypeTag(tags),
+		DeclaredType: parseDeclaredTypeTag(tags),
 		StringType: StringType{
-			typeDefinition: parseTypeDefinitionTag(tags),
+			TypeDefinition: parseTypeDefinitionTag(tags),
 		},
 		Start: tags.Get("start"),
 	}
@@ -436,9 +436,9 @@ func parseBooleanTags(field reflect.StructField) (*BooleanVariable, error) {
 	}
 
 	return &BooleanVariable{
-		declaredType: parseDeclaredTypeTag(tags),
+		DeclaredType: parseDeclaredTypeTag(tags),
 		BooleanType: BooleanType{
-			typeDefinition: parseTypeDefinitionTag(tags),
+			TypeDefinition: parseTypeDefinitionTag(tags),
 		},
 		Start: start,
 	}, nil
@@ -483,14 +483,14 @@ func parseBoolTag(t reflect.StructTag, n string) (b bool, err error) {
 	return
 }
 
-func parseDeclaredTypeTag(t reflect.StructTag) declaredType {
-	return declaredType{
+func parseDeclaredTypeTag(t reflect.StructTag) DeclaredType {
+	return DeclaredType{
 		DeclaredType: t.Get("declaredtype"),
 	}
 }
 
-func parseTypeDefinitionTag(t reflect.StructTag) typeDefinition {
-	return typeDefinition{
+func parseTypeDefinitionTag(t reflect.StructTag) TypeDefinition {
+	return TypeDefinition{
 		Quantity: t.Get("quantity"),
 	}
 }
