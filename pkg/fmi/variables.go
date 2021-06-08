@@ -262,23 +262,19 @@ func parseFieldVariable(field reflect.StructField) (sv ScalarVariable, err error
 		return
 	}
 
-	var causality VariableCausality
+	var causality *VariableCausality
 	if err = parseVariableEnumTag(tags, "causality", &causality); err != nil {
 		return
 	}
 
-	var variability VariableVariability
+	var variability *VariableVariability
 	if err = parseVariableEnumTag(tags, "variability", &variability); err != nil {
 		return
 	}
 
 	var initial *VariableInitial
-	if _, got := tags.Lookup("initial"); got {
-		var init VariableInitial
-		if err = parseVariableEnumTag(tags, "initial", &init); err != nil {
-			return
-		}
-		initial = &init
+	if err = parseVariableEnumTag(tags, "initial", &initial); err != nil {
+		return
 	}
 
 	sv.ScalarVariableType = v
@@ -495,11 +491,17 @@ func parseTypeDefinitionTag(t reflect.StructTag) TypeDefinition {
 	}
 }
 
-func parseVariableEnumTag(t reflect.StructTag, n string, m encoding.TextUnmarshaler) error {
+func parseVariableEnumTag(t reflect.StructTag, n string, i interface{}) error {
 	s := t.Get(n)
-	err := m.UnmarshalText([]byte(s))
-	if err != nil {
-		return fmt.Errorf("Error unmarshaling model variable enum %s: %w", n, err)
+	if s == "" {
+		return nil
 	}
-	return nil
+	rv := reflect.ValueOf(i).Elem()
+	rt := rv.Type().Elem()
+	rv.Set(reflect.New(rt))
+	if tu, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
+		return tu.UnmarshalText([]byte(s))
+	} else {
+		return fmt.Errorf("Type is not encoding.TextUnmarshaler")
+	}
 }

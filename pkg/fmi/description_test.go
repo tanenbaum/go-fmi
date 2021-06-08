@@ -14,7 +14,7 @@ func Test_NewModelDescription(t *testing.T) {
 		modelDescriptionStatic: modelDescriptionStatic{
 			FMIVersion:               "2.0",
 			VariableNamingConvention: "flat",
-			LogCategories: []logCategory{
+			LogCategories: &[]logCategory{
 				{
 					Name: "logEvents",
 				},
@@ -71,7 +71,7 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 				GenerationTool:          "Golang",
 				GenerationDateAndTime:   &time.Time{},
 				NumberOfEventIndicators: 2,
-				UnitDefinitions: []Unit{
+				UnitDefinitions: &[]Unit{
 					{
 						Name: "rads/s",
 						BaseUnit: &BaseUnit{
@@ -96,7 +96,7 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 						},
 					},
 				},
-				TypeDefinitions: []SimpleType{
+				TypeDefinitions: &[]SimpleType{
 					{
 						Name:        "realtype",
 						Description: "real type desc",
@@ -176,7 +176,7 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 						StepSize:  &StepSize,
 					}
 				}(),
-				VendorAnnotations: []ToolAnnotation{
+				VendorAnnotations: &[]ToolAnnotation{
 					{
 						Name:     "Foo",
 						InnerXML: "<Bar>Baz</Bar>",
@@ -187,14 +187,20 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 						Name:           "varreal",
 						ValueReference: 1,
 						Description:    "real desc",
-						Causality:      VariableCausalityInput,
-						Variability:    VariableVariabilityContinuous,
+						Causality: func() *VariableCausality {
+							v := VariableCausalityInput
+							return &v
+						}(),
+						Variability: func() *VariableVariability {
+							v := VariableVariabilityContinuous
+							return &v
+						}(),
 						Initial: func() *VariableInitial {
 							v := VariableInitialApprox
 							return &v
 						}(),
 						CanHandleMultipleSetPerTimeInstant: true,
-						Annotations: []ToolAnnotation{
+						Annotations: &[]ToolAnnotation{
 							{
 								Name:     "Bar",
 								InnerXML: "<A>1</A>",
@@ -227,8 +233,14 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 						Name:           "varinteger",
 						ValueReference: 2,
 						Description:    "integer desc",
-						Causality:      VariableCausalityIndependent,
-						Variability:    VariableVariabilityDiscrete,
+						Causality: func() *VariableCausality {
+							v := VariableCausalityIndependent
+							return &v
+						}(),
+						Variability: func() *VariableVariability {
+							v := VariableVariabilityDiscrete
+							return &v
+						}(),
 						Initial: func() *VariableInitial {
 							v := VariableInitialExact
 							return &v
@@ -263,13 +275,13 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 					},
 				},
 				ModelStructure: ModelStructure{
-					Outputs: []Unknown{
+					Outputs: &[]Unknown{
 						{
 							Index:        3,
 							Dependencies: UintAttributeList{1, 2},
 						},
 					},
-					Derivatives: []Unknown{
+					Derivatives: &[]Unknown{
 						{
 							Index:        1,
 							Dependencies: UintAttributeList{3},
@@ -280,7 +292,7 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 							DependenciesKind: StringAttributeList{"constant"},
 						},
 					},
-					InitialUnknowns: []Unknown{
+					InitialUnknowns: &[]Unknown{
 						{
 							Index:            1,
 							Dependencies:     UintAttributeList{2, 3, 4},
@@ -290,11 +302,78 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 				},
 			},
 			[]byte(`<?xml version="1.0" encoding="UTF-8"?>
-<fmiModelDescription fmiVersion="2.0" modelName="name" guid="guid-guid" description="Thing here" author="Bob Smith" version="v0.0.1" copyright="Blah" license="MIT" generationTool="Golang" generationDateAndTime="0001-01-01T00:00:00Z" numberOfEventIndicators="2">
+<fmiModelDescription fmiVersion="2.0" variableNamingConvention="flat" modelName="name" guid="guid-guid" description="Thing here" author="Bob Smith" version="v0.0.1" copyright="Blah" license="MIT" generationTool="Golang" generationDateAndTime="0001-01-01T00:00:00Z" numberOfEventIndicators="2">
+    <LogCategories>
+        <Category name="logEvents"></Category>
+        <Category name="logStatusWarning"></Category>
+        <Category name="logStatusDiscard"></Category>
+        <Category name="logStatusError"></Category>
+        <Category name="logStatusFatal"></Category>
+        <Category name="logStatusPending"></Category>
+        <Category name="logAll"></Category>
+    </LogCategories>
+    <UnitDefinitions>
+        <Unit name="rads/s">
+            <BaseUnit s="-1" rad="1"></BaseUnit>
+            <DisplayUnit name="deg/s" factor="57.29577951308232"></DisplayUnit>
+        </Unit>
+        <Unit name="bar">
+            <BaseUnit kg="1" m="-1" s="1" factor="57.29577951308232" offset="0"></BaseUnit>
+        </Unit>
+    </UnitDefinitions>
+    <TypeDefinitions>
+        <SimpleType name="realtype" description="real type desc">
+            <Real quantity="thing" unit="kg" displayUnit="bar" relativeQuantity="true" min="0" max="57.29577951308232" nominal="57.29577951308232" unbounded="true"></Real>
+        </SimpleType>
+        <SimpleType name="integertype" description="integer type desc">
+            <Integer quantity="thing2" min="2" max="2"></Integer>
+        </SimpleType>
+        <SimpleType name="booleantype" description="boolean type desc">
+            <Boolean quantity="thing3"></Boolean>
+        </SimpleType>
+        <SimpleType name="stringtype" description="string type desc">
+            <String quantity="thing4"></String>
+        </SimpleType>
+        <SimpleType name="enumtype" description="enum type desc">
+            <Enumeration quantity="thing5">
+                <Item name="enum1" value="45" description="enum one"></Item>
+                <Item name="enum2" value="-1" description="enum two"></Item>
+            </Enumeration>
+        </SimpleType>
+    </TypeDefinitions>
     <DefaultExperiment startTime="1" stopTime="2" tolerance="0.1" stepSize="0.001"></DefaultExperiment>
     <VendorAnnotations>
         <Tool name="Foo"><Bar>Baz</Bar></Tool>
     </VendorAnnotations>
+    <ModelVariables>
+        <ScalarVariable name="varreal" valueReference="1" description="real desc" causality="input" variability="continuous" initial="approx" canHandleMultipleSetPerTimeInstant="true">
+            <Annotations>
+                <Tool name="Bar"><A>1</A></Tool>
+            </Annotations>
+            <Real quantity="thing" unit="kg" displayUnit="disp" relativeQuantity="true" min="0" max="57.29577951308232" nominal="0" unbounded="true" declaredType="realtype" start="0" derivative="57.29577951308232" reinit="true"></Real>
+        </ScalarVariable>
+        <ScalarVariable name="varinteger" valueReference="2" description="integer desc" causality="independent" variability="discrete" initial="exact">
+            <Integer min="2" max="2" start="2"></Integer>
+        </ScalarVariable>
+        <ScalarVariable name="varboolean" valueReference="3" description="boolean desc">
+            <Boolean></Boolean>
+        </ScalarVariable>
+        <ScalarVariable name="varstring" valueReference="4" description="string desc">
+            <String start="foo"></String>
+        </ScalarVariable>
+    </ModelVariables>
+    <ModelStructure>
+        <Outputs>
+            <Unknown index="3" dependencies="1 2"></Unknown>
+        </Outputs>
+        <Derivatives>
+            <Unknown index="1" dependencies="3"></Unknown>
+            <Unknown index="2" dependencies="3" dependenciesKind="constant"></Unknown>
+        </Derivatives>
+        <InitialUnknowns>
+            <Unknown index="1" dependencies="2 3 4" dependenciesKind="constant dependent fixed"></Unknown>
+        </InitialUnknowns>
+    </ModelStructure>
 </fmiModelDescription>`),
 			false,
 		},
@@ -306,9 +385,21 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 				},
 				Name: "name",
 				GUID: "guid-guid",
+				ModelVariables: []ScalarVariable{
+					{
+						Name:           "v1",
+						ValueReference: 1,
+					},
+				},
+				ModelStructure: ModelStructure{},
 			},
 			[]byte(`<?xml version="1.0" encoding="UTF-8"?>
-<fmiModelDescription fmiVersion="2.0" modelName="name" guid="guid-guid" numberOfEventIndicators="0"></fmiModelDescription>`),
+<fmiModelDescription fmiVersion="2.0" modelName="name" guid="guid-guid">
+    <ModelVariables>
+        <ScalarVariable name="v1" valueReference="1"></ScalarVariable>
+    </ModelVariables>
+    <ModelStructure></ModelStructure>
+</fmiModelDescription>`),
 			false,
 		},
 	}
@@ -320,9 +411,7 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 				t.Errorf("ModelDescription.MarshallIndent() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ModelDescription.MarshallIndent() = %v, want %v", string(got), string(tt.want))
-			}
+			assert.Equal(t, string(got), string(tt.want))
 		})
 	}
 }

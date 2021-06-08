@@ -93,16 +93,16 @@ type ModelDescription struct {
 		display units into the units used in the model equations]. These
 		definitions are used in the XML element “ModelVariables”.
 	*/
-	UnitDefinitions []Unit `xml:"UnitDefinitions>Unit,omitempty"`
+	UnitDefinitions *[]Unit `xml:"UnitDefinitions>Unit,omitempty"`
 
 	// TypeDefinitions to be shared by ModelVariables
-	TypeDefinitions []SimpleType `xml:"TypeDefinitions>SimpleType,omitempty"`
+	TypeDefinitions *[]SimpleType `xml:"TypeDefinitions>SimpleType,omitempty"`
 
 	// DefaultExperiment is optional default experiment parameters.
 	DefaultExperiment *Experiment `xml:"DefaultExperiment,omitempty"`
 
 	// VendorAnnotations is optional data for vendor tools containing list of Tool elements
-	VendorAnnotations []ToolAnnotation `xml:"VendorAnnotations>Tool,omitempty"`
+	VendorAnnotations *[]ToolAnnotation `xml:"VendorAnnotations>Tool,omitempty"`
 
 	/*
 		ModelVariables consists of ordered set of "ScalarVariable" elements.
@@ -204,9 +204,9 @@ type modelDescriptionStatic struct {
 	// FMIVersion is version for model exchange or co-simulation. Derived from C headers.
 	FMIVersion string `xml:"fmiVersion,attr"`
 	// VariableNamingConvention defines convention of variables. Set to "flat" in this library.
-	VariableNamingConvention string `xml:"variableNamingConvention,attr"`
+	VariableNamingConvention string `xml:"variableNamingConvention,attr,omitempty"`
 	// LogCategories are fixed log categories based on logger
-	LogCategories []logCategory `xml:"LogCategories>Category,omitempty"`
+	LogCategories *[]logCategory `xml:"LogCategories>Category,omitempty"`
 }
 
 type logCategory struct {
@@ -216,14 +216,14 @@ type logCategory struct {
 	Description string `xml:"description,attr,omitempty"`
 }
 
-func buildLogCategories() []logCategory {
+func buildLogCategories() *[]logCategory {
 	cs := make([]logCategory, len(loggerCategories))
 	for i, l := range loggerCategories {
 		cs[i] = logCategory{
 			Name: l.String(),
 		}
 	}
-	return cs
+	return &cs
 }
 
 type TypeDefinition struct {
@@ -319,7 +319,7 @@ type EnumerationType struct {
 		enumeration (in order that the mapping between “ name ” and “ value ” is
 		bijective). An Enumeration element must have at least one Item.
 	*/
-	Item []EnumerationItem `xml:"item,omitempty"`
+	Item []EnumerationItem `xml:"Item,omitempty"`
 }
 
 // EnumerationItem defines an enum item inside an enumeration type
@@ -419,7 +419,7 @@ type ScalarVariable struct {
 
 		The default of causality is “ local ”.
 	*/
-	Causality VariableCausality `xml:"causality,attr"`
+	Causality *VariableCausality `xml:"causality,attr,omitempty"`
 
 	/*
 		Variability enumeration that defines the time dependency of the variable, in other words, it
@@ -455,7 +455,7 @@ type ScalarVariable struct {
 
 		The default is “continuous”.
 	*/
-	Variability VariableVariability `xml:"variability,attr"`
+	Variability *VariableVariability `xml:"variability,attr,omitempty"`
 
 	/*
 		Initial is an enumeration that defines how the variable is initialized. It is not allowed to provide a
@@ -489,7 +489,7 @@ type ScalarVariable struct {
 	CanHandleMultipleSetPerTimeInstant bool `xml:"canHandleMultipleSetPerTimeInstant,attr,omitempty"`
 
 	// Annotations contains custom tool annotations for this variable
-	Annotations []ToolAnnotation `xml:"Annotations>Tool,omitempty"`
+	Annotations *[]ToolAnnotation `xml:"Annotations>Tool,omitempty"`
 
 	*ScalarVariableType
 }
@@ -543,8 +543,11 @@ type VariableInitial uint
 // VariableType enum for type definitions and scalars variables
 type VariableType uint
 
-func (e VariableCausality) MarshalText() (text []byte, err error) {
-	return enumMarshalText(int(e), variableCausalityEnum[:])
+func (e *VariableCausality) MarshalText() (text []byte, err error) {
+	if e == nil {
+		return nil, nil
+	}
+	return enumMarshalText(int(*e), variableCausalityEnum[:])
 }
 
 func (e *VariableCausality) UnmarshalText(text []byte) error {
@@ -556,8 +559,11 @@ func (e *VariableCausality) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func (e VariableVariability) MarshalText() (text []byte, err error) {
-	return enumMarshalText(int(e), variableVariabilityEnum[:])
+func (e *VariableVariability) MarshalText() (text []byte, err error) {
+	if e == nil {
+		return nil, nil
+	}
+	return enumMarshalText(int(*e), variableVariabilityEnum[:])
 }
 
 func (e *VariableVariability) UnmarshalText(text []byte) error {
@@ -569,8 +575,11 @@ func (e *VariableVariability) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func (e VariableInitial) MarshalText() (text []byte, err error) {
-	return enumMarshalText(int(e), variableInitialEnum[:])
+func (e *VariableInitial) MarshalText() (text []byte, err error) {
+	if e == nil {
+		return nil, nil
+	}
+	return enumMarshalText(int(*e), variableInitialEnum[:])
 }
 
 func (e *VariableInitial) UnmarshalText(text []byte) error {
@@ -711,7 +720,7 @@ type ModelStructure struct {
 		instant in Event and in Continuous-Time Mode (ModelExchange) and at the
 		current Communication Point (CoSimulation).
 	*/
-	Outputs []Unknown `xml:"Outputs>Unknown,omitempty"`
+	Outputs *[]Unknown `xml:"Outputs>Unknown,omitempty"`
 
 	/*
 		Derivatives is an ordered list of all state derivatives, in other words, a list of ScalarVariable
@@ -745,7 +754,7 @@ type ModelStructure struct {
 		the implementation results in a discrete-time system, but from the outside, it is
 		still a continuous-time system).]
 	*/
-	Derivatives []Unknown `xml:"Derivatives>Unknown,omitempty"`
+	Derivatives *[]Unknown `xml:"Derivatives>Unknown,omitempty"`
 
 	/*
 		InitialUnknowns is ordered list of all exposed Unknowns in Initialization Mode. This list consists of
@@ -769,7 +778,7 @@ type ModelStructure struct {
 		Attribute dependencies defines the dependencies of the Unknowns from the
 		Knowns in Initialization Mode at the initial time.
 	*/
-	InitialUnknowns []Unknown `xml:"InitialUnknowns>Unknown,omitempty"`
+	InitialUnknowns *[]Unknown `xml:"InitialUnknowns>Unknown,omitempty"`
 }
 
 /*

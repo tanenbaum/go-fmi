@@ -153,8 +153,14 @@ func TestNewModelVariables(t *testing.T) {
 						Name:           "A",
 						ValueReference: 1,
 						Description:    "foo",
-						Causality:      VariableCausalityParameter,
-						Variability:    VariableVariabilityTunable,
+						Causality: func() *VariableCausality {
+							v := VariableCausalityParameter
+							return &v
+						}(),
+						Variability: func() *VariableVariability {
+							v := VariableVariabilityTunable
+							return &v
+						}(),
 						Initial: func() *VariableInitial {
 							i := VariableInitialApprox
 							return &i
