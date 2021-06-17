@@ -49,6 +49,7 @@ var (
 
 // ModelDescription represents root node of a modelDescription.xml file
 type ModelDescription struct {
+	XMLName xml.Name `xml:"fmiModelDescription"`
 	modelDescriptionStatic
 	// Name is the name of the model as used in the modeling environment that generated the XML file.
 	Name string `xml:"modelName,attr"`
@@ -89,6 +90,22 @@ type ModelDescription struct {
 	NumberOfEventIndicators uint `xml:"numberOfEventIndicators,attr,omitempty"`
 
 	/*
+		ModelExchange, if present, signals that the FMU is based on “FMI for Model Exchange” [(in other
+		words, the FMU includes the model or the communication to a tool
+		that provides the model, and the environment provides the simulation engine)].
+	*/
+	ModelExchange *ModelExchange `xml:"ModelExchange,omitempty"`
+
+	/*
+		CoSimulation, if present, signals that the FMU is based on “FMI for Co-Simulation” [(in other
+		words, the FMU includes the model and the simulation engine, or a
+		communication to a tool that provides the model and the simulation
+		engine, and the environment provides the master algorithm to run
+		coupled FMU co-simulation slaves together)].
+	*/
+	CoSimulation *CoSimulation `xml:"CoSimulation,omitempty"`
+
+	/*
 		UnitDefinitions is a global list of unit and display unit definitions [for example, to convert
 		display units into the units used in the model equations]. These
 		definitions are used in the XML element “ModelVariables”.
@@ -126,6 +143,94 @@ type ModelDescription struct {
 		loops when connecting FMUs together.]
 	*/
 	ModelStructure ModelStructure `xml:"ModelStructure"`
+}
+
+func (m ModelDescription) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+	m.modelDescriptionStatic = modelDescriptionStatic{
+		FMIVersion:               GetVersion(),
+		VariableNamingConvention: "flat",
+		LogCategories:            buildLogCategories(),
+	}
+	type element ModelDescription
+	return e.Encode(element(m))
+}
+
+/*
+	ModelExchange defines fields for model or comms tool that provides a model.
+	The environment provides the simulation engine for the model.
+*/
+type ModelExchange struct {
+	FMUShared
+	/*
+		CompletedIntegratorStepNotNeeded, if true, the function fmi2CompletedIntegratorStep need not be
+		called (this gives a slightly more efficient integration). If it is called, it has no effect.
+		If false (the default), the function must be called after every completed integrator step.
+	*/
+	CompletedIntegratorStepNotNeeded bool `xml:"completedIntegratorStepNotNeeded,attr,omitempty"`
+}
+
+func (m ModelExchange) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	m.CanNotUseMemoryManagementFunctions = true
+	type element ModelExchange
+	return e.EncodeElement(element(m), start)
+}
+
+/*
+	CoSimulation defines fields for model and simulation engine/comms tool to a simulation engine.
+	The environment provides the master algorithm to couple FMUs together.
+*/
+type CoSimulation struct {
+	FMUShared
+	CanHandleVariableCommunicationStepSize bool `xml:"canHandleVariableCommunicationStepSize,attr,omitempty"`
+	CanInterpolateInputs                   bool `xml:"canInterpolateInputs,attr,omitempty"`
+	MaxOutputDerivativeOrder               uint `xml:"maxOutputDerivativeOrder,attr,omitempty"`
+	CanRunAsynchronuously                  bool `xml:"canRunAsynchronuously,attr,omitempty"`
+}
+
+func (m CoSimulation) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	m.CanNotUseMemoryManagementFunctions = true
+	type element CoSimulation
+	return e.EncodeElement(element(m), start)
+}
+
+// FMUShared contains fields shared between ModelExchange and CoSimulation
+type FMUShared struct {
+	fmuStatic
+	/*
+		ModelIdentifier is Short class name according to C syntax, for example "A_B_C".
+		Used here as name of the static library or SharedObject.
+	*/
+	ModelIdentifier string `xml:"modelIdentifier,attr"`
+
+	/*
+		NeedsExecutionTool, if true, a tool is needed to execute the model and
+		the FMU just contains the communication to this tool. [Typically, this information is only utilized for
+		information purposes. For example, when loading an FMU with needsExecutionTool = true , the environment can inform the user that a
+		tool has to be available on the computer where the model is instantiated. The name of the tool
+		can be taken from attribute generationTool of fmiModelDescription. ]
+	*/
+	NeedsExecutionTool bool `xml:"needsExecutionTool,attr,omitempty"`
+
+	/*
+		CanBeInstantiatedOnlyOncePerProcess flag indicates cases (especially for embedded code), where only one instance per
+		FMU is possible (multiple instantiation is default = false ; if multiple instances are needed and this flag =
+		true, the FMUs must be instantiated in different processes).
+	*/
+	CanBeInstantiatedOnlyOncePerProcess bool `xml:"canBeInstantiatedOnlyOncePerProcess,attr,omitempty"`
+
+	CanGetAndSetFMUstate          bool `xml:"canGetAndSetFMUstate,attr,omitempty"`
+	CanSerializeFMUstate          bool `xml:"canSerializeFMUstate,attr,omitempty"`
+	ProvidesDirectionalDerivative bool `xml:"providesDirectionalDerivative,attr,omitempty"`
+}
+
+// static fields for FMU models
+type fmuStatic struct {
+	/*
+		CanNotUseMemoryManagementFunctions, if true,the FMU uses its own functions for
+		memory allocation and freeing only. The callback functions allocateMemory and freeMemory
+		given in fmi2Instantiate are ignored.\
+	*/
+	CanNotUseMemoryManagementFunctions bool `xml:"canNotUseMemoryManagementFunctions,attr,omitempty"`
 }
 
 /*
@@ -200,7 +305,6 @@ type SimpleType struct {
 }
 
 type modelDescriptionStatic struct {
-	XMLName xml.Name `xml:"fmiModelDescription"`
 	// FMIVersion is version for model exchange or co-simulation. Derived from C headers.
 	FMIVersion string `xml:"fmiVersion,attr"`
 	// VariableNamingConvention defines convention of variables. Set to "flat" in this library.
@@ -346,16 +450,6 @@ type Experiment struct {
 	Tolerance *float64 `xml:"tolerance,attr,omitempty"`
 	// StepSize is default step size
 	StepSize *float64 `xml:"stepSize,attr,omitempty"`
-}
-
-func NewModelDescription() ModelDescription {
-	return ModelDescription{
-		modelDescriptionStatic: modelDescriptionStatic{
-			FMIVersion:               GetVersion(),
-			VariableNamingConvention: "flat",
-			LogCategories:            buildLogCategories(),
-		},
-	}
 }
 
 func (m ModelDescription) MarshallIndent() ([]byte, error) {

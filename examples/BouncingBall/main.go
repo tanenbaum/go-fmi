@@ -27,15 +27,6 @@ const (
 	vr_v_min
 )
 
-var (
-	description = func() fmi.ModelDescription {
-		d := fmi.NewModelDescription()
-		d.GUID = guid
-		d.Name = name
-		return d
-	}()
-)
-
 func init() {
 	fmi.RegisterModel(model{})
 }
@@ -43,7 +34,10 @@ func init() {
 type model struct{}
 
 func (m model) Description() fmi.ModelDescription {
-	return description
+	return fmi.ModelDescription{
+		GUID: guid,
+		Name: name,
+	}
 }
 
 func (m model) Instantiate(l fmi.Logger) (fmi.ModelInstance, error) {

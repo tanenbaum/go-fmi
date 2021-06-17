@@ -8,39 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_NewModelDescription(t *testing.T) {
-	md := NewModelDescription()
-	assert.Equal(t, ModelDescription{
-		modelDescriptionStatic: modelDescriptionStatic{
-			FMIVersion:               "2.0",
-			VariableNamingConvention: "flat",
-			LogCategories: &[]logCategory{
-				{
-					Name: "logEvents",
-				},
-				{
-					Name: "logStatusWarning",
-				},
-				{
-					Name: "logStatusDiscard",
-				},
-				{
-					Name: "logStatusError",
-				},
-				{
-					Name: "logStatusFatal",
-				},
-				{
-					Name: "logStatusPending",
-				},
-				{
-					Name: "logAll",
-				},
-			},
-		},
-	}, md)
-}
-
 func TestModelDescription_MarshallIndent(t *testing.T) {
 	one := 1
 	minusOne := -1
@@ -56,11 +23,6 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 		{
 			"Model description is generated with all fields set",
 			ModelDescription{
-				modelDescriptionStatic: modelDescriptionStatic{
-					FMIVersion:               "2.0",
-					VariableNamingConvention: "flat",
-					LogCategories:            buildLogCategories(),
-				},
 				Name:                    "name",
 				GUID:                    "guid-guid",
 				Description:             "Thing here",
@@ -71,6 +33,31 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 				GenerationTool:          "Golang",
 				GenerationDateAndTime:   &time.Time{},
 				NumberOfEventIndicators: 2,
+				ModelExchange: &ModelExchange{
+					FMUShared: FMUShared{
+						ModelIdentifier:                     "id",
+						NeedsExecutionTool:                  true,
+						CanBeInstantiatedOnlyOncePerProcess: true,
+						CanGetAndSetFMUstate:                true,
+						CanSerializeFMUstate:                true,
+						ProvidesDirectionalDerivative:       true,
+					},
+					CompletedIntegratorStepNotNeeded: true,
+				},
+				CoSimulation: &CoSimulation{
+					FMUShared: FMUShared{
+						ModelIdentifier:                     "id",
+						NeedsExecutionTool:                  true,
+						CanBeInstantiatedOnlyOncePerProcess: true,
+						CanGetAndSetFMUstate:                true,
+						CanSerializeFMUstate:                true,
+						ProvidesDirectionalDerivative:       true,
+					},
+					CanHandleVariableCommunicationStepSize: true,
+					CanInterpolateInputs:                   true,
+					MaxOutputDerivativeOrder:               2,
+					CanRunAsynchronuously:                  true,
+				},
 				UnitDefinitions: &[]Unit{
 					{
 						Name: "rads/s",
@@ -312,6 +299,8 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
         <Category name="logStatusPending"></Category>
         <Category name="logAll"></Category>
     </LogCategories>
+    <ModelExchange canNotUseMemoryManagementFunctions="true" modelIdentifier="id" needsExecutionTool="true" canBeInstantiatedOnlyOncePerProcess="true" canGetAndSetFMUstate="true" canSerializeFMUstate="true" providesDirectionalDerivative="true" completedIntegratorStepNotNeeded="true"></ModelExchange>
+    <CoSimulation canNotUseMemoryManagementFunctions="true" modelIdentifier="id" needsExecutionTool="true" canBeInstantiatedOnlyOncePerProcess="true" canGetAndSetFMUstate="true" canSerializeFMUstate="true" providesDirectionalDerivative="true" canHandleVariableCommunicationStepSize="true" canInterpolateInputs="true" maxOutputDerivativeOrder="2" canRunAsynchronuously="true"></CoSimulation>
     <UnitDefinitions>
         <Unit name="rads/s">
             <BaseUnit s="-1" rad="1"></BaseUnit>
@@ -380,9 +369,6 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 		{
 			"Model description is generated with optional fields omitted",
 			ModelDescription{
-				modelDescriptionStatic: modelDescriptionStatic{
-					FMIVersion: "2.0",
-				},
 				Name: "name",
 				GUID: "guid-guid",
 				ModelVariables: []ScalarVariable{
@@ -391,10 +377,25 @@ func TestModelDescription_MarshallIndent(t *testing.T) {
 						ValueReference: 1,
 					},
 				},
+				CoSimulation: &CoSimulation{
+					FMUShared: FMUShared{
+						ModelIdentifier: "id",
+					},
+				},
 				ModelStructure: ModelStructure{},
 			},
 			[]byte(`<?xml version="1.0" encoding="UTF-8"?>
-<fmiModelDescription fmiVersion="2.0" modelName="name" guid="guid-guid">
+<fmiModelDescription fmiVersion="2.0" variableNamingConvention="flat" modelName="name" guid="guid-guid">
+    <LogCategories>
+        <Category name="logEvents"></Category>
+        <Category name="logStatusWarning"></Category>
+        <Category name="logStatusDiscard"></Category>
+        <Category name="logStatusError"></Category>
+        <Category name="logStatusFatal"></Category>
+        <Category name="logStatusPending"></Category>
+        <Category name="logAll"></Category>
+    </LogCategories>
+    <CoSimulation canNotUseMemoryManagementFunctions="true" modelIdentifier="id"></CoSimulation>
     <ModelVariables>
         <ScalarVariable name="v1" valueReference="1"></ScalarVariable>
     </ModelVariables>
